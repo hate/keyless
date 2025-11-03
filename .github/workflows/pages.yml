@@ -24,6 +24,16 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libasound2-dev \
+            libx11-dev libxi-dev libxtst-dev libxrandr-dev libxext-dev libxrender-dev \
+            libxfixes-dev libxcomposite-dev libxcursor-dev \
+            libxdo-dev \
+            pkg-config
+
       - name: Build Rust docs
         run: cargo doc --workspace --no-deps
 
