@@ -7,6 +7,6 @@ publish = false
 
 [dependencies]
 keyless-core = { path = "../keyless-core" }
-cpal = "0.15"
+cpal = "0.16"
 realfft = "3"
 tracing = "0.1"
