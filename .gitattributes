@@ -1,0 +1,23 @@
+# Auto-detect text files and normalize line endings to LF on checkin
+* text=auto eol=lf
+
+# Explicitly declare text files
+*.rs text
+*.toml text
+*.md text
+*.yml text
+*.yaml text
+*.json text
+*.sh text eol=lf
+
+# Binary files (only types that exist in this repo)
+*.png binary
+*.svg binary
+
+# Git config files
+.gitattributes text
+.gitignore text
+
+# CI/CD
+.github/** text eol=lf
+

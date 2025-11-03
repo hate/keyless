@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question / Discussion
+    url: https://github.com/hate/keyless/discussions
+    about: For questions and general discussion (not bugs or features)

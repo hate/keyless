@@ -1,0 +1,31 @@
+[advisories]
+# Ignore unmaintained advisory for paste crate (transitive dependency via candle-core)
+# The crate is archived but still functional, and candle-core uses it.
+ignore = [{ id = "RUSTSEC-2024-0436" }]
+
+[bans]
+# Warn on multiple versions of the same crate
+multiple-versions = "warn"
+
+[sources]
+# Only allow crates.io (strictest security/reproducibility)
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# Block all git dependencies (ensures reproducible builds)
+allow-git = []
+
+[licenses]
+# Allow common open source licenses
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "0BSD",
+    "ISC",
+    "MPL-2.0",
+    "Unlicense",
+    "BSL-1.0",
+    "Zlib",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0",
+]

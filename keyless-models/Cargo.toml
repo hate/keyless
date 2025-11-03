@@ -1,0 +1,26 @@
+[package]
+name = "keyless-models"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+keyless-core = { path = "../keyless-core" }
+dirs-next = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+reqwest = { version = "0.11", default-features = false, features = [
+    "rustls-tls",
+    "stream",
+    "blocking",
+] }
+tokio = { version = "1", features = ["rt"] }
+
+[dev-dependencies]
+serde_json = "1"
+tempfile = "3"
+
+[features]
+net-tests = []

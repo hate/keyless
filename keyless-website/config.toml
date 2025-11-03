@@ -1,0 +1,8 @@
+base_url = "https://keyless.sh/"
+title = "keyless"
+build_search_index = false
+compile_sass = false
+minify_html = true
+
+[extra]
+tagline = "Privacy‑first, real‑time speech‑to‑text"

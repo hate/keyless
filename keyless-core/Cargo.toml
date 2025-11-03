@@ -1,0 +1,16 @@
+[package]
+name = "keyless-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+dirs-next = "2"
+serde_json = "1"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+serde_json = "1"

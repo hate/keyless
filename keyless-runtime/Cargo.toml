@@ -1,0 +1,19 @@
+[package]
+name = "keyless-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+keyless-core = { path = "../keyless-core" }
+keyless-audio = { path = "../keyless-audio" }
+keyless-whisper = { path = "../keyless-whisper" }
+keyless-output = { path = "../keyless-output" }
+keyless-models = { path = "../keyless-models" }
+rdev = "0.5"
+tracing = "0.1"
+smallvec = "1"
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,12 @@
+[package]
+name = "keyless-audio"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+keyless-core = { path = "../keyless-core" }
+cpal = "0.15"
+realfft = "3"
+tracing = "0.1"

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>
+      {% if page.title %}
+        {{ page.title }} ·
+      {% endif %}keyless
+    </title>
+    <meta name="description" content="keyless — Privacy‑first, real‑time speech‑to‑text" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="apple-touch-icon" href="/logo.svg" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prism-themes@1/themes/prism-vsc-dark-plus.min.css" />
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+      body {
+        font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial;
+      }
+      .terminal-border {
+        border: 1px solid #2a2a2a;
+        box-shadow: 0 0 24px rgba(255, 255, 255, 0.06);
+      }
+      .blink {
+        -webkit-animation: blink 1s steps(1, end) infinite;
+        animation: blink 1s steps(1, end) infinite;
+        will-change: opacity;
+      }
+      @-webkit-keyframes blink {
+        0%,
+        50% {
+          opacity: 1;
+        }
+        51%,
+        100% {
+          opacity: 0;
+        }
+      }
+      @keyframes blink {
+        0%,
+        50% {
+          opacity: 1;
+        }
+        51%,
+        100% {
+          opacity: 0;
+        }
+      }
+      .gradient-text {
+        background: linear-gradient(135deg, #e5e5e5 0%, #a0a0a0 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        display: inline-block;
+        padding-bottom: 0.08em; /* avoid descender clipping (y, g, j) */
+      }
+      .gradient-bar {
+        background: linear-gradient(to bottom, #ff5555, #f1fa8c, #50fa7b);
+      }
+      .hover-glow:hover {
+        box-shadow: 0 0 12px rgba(255, 255, 255, 0.08);
+        transition: box-shadow 0.25s ease;
+      }
+      /* Make Prism background transparent to blend with site */
+      pre[class*='language-'],
+      code[class*='language-'] {
+        background: transparent !important;
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'theme-primary': '#5eb3f6',
+              'theme-accent-bright': '#7dc4ff',
+              'theme-accent-dim': '#4a8fc4',
+              'theme-teal': '#4fd6be',
+              'theme-success': '#73daca',
+              'theme-purple': '#c084fc',
+              'theme-listening': '#73da75',
+              'theme-error': '#f7768e',
+              'theme-amber': '#e0af68',
+              'theme-bg-dark': '#000000',
+              'theme-bg-medium': '#0f0f0f',
+              'theme-bg-selected': '#1a1a1a',
+              'theme-text-primary': '#e5e5e5',
+              'theme-text-secondary': '#a0a0a0',
+              'theme-text-muted': '#5a5a5a',
+              'theme-label': '#8a8a8a',
+              'theme-border': '#2a2a2a'
+            }
+          }
+        }
+      }
+    </script>
+  </head>
+  <body class="bg-theme-bg-dark text-theme-text-primary min-h-screen p-4 md:p-8">
+    {% block content %}
+
+    {% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/plugins/autoloader/prism-autoloader.min.js"></script>
+  </body>
+</html>

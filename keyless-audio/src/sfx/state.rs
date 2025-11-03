@@ -1,0 +1,135 @@
+//! Internal realtime state for the SFX output callback.
+
+/// Beep variants triggered by the public player API.
+#[derive(Clone, Copy)]
+pub enum BeepKind {
+    /// PTT pressed
+    Press,
+    /// PTT released
+    Release,
+    /// Final text delivered (double beep)
+    Final,
+}
+
+/// Minimal oscillator + envelope state progressed by the audio callback.
+pub struct CallbackState {
+    /// Audio sample rate in Hz.
+    pub sample_rate: f32,
+    /// Whether a beep is currently playing.
+    pub active: bool,
+    /// Current oscillator phase (0 to TAU).
+    pub phase: f32,
+    /// Phase increment per sample (frequency * TAU / sample_rate).
+    pub phase_inc: f32,
+    /// Current gain multiplier.
+    pub gain: f32,
+    /// Total frames for the current beep.
+    pub frames_total: usize,
+    /// Frames played so far.
+    pub frames_played: usize,
+    /// Attack duration in frames.
+    pub attack_frames: usize,
+    /// Release duration in frames.
+    pub release_frames: usize,
+    /// Whether a pending beep is queued (for double beeps).
+    pub pending_active: bool,
+    /// Frequency for the pending beep.
+    pub pending_freq: f32,
+    /// Gain for the pending beep.
+    pub pending_gain: f32,
+    /// Total frames for the pending beep.
+    pub pending_frames_total: usize,
+    /// Frames remaining in the gap between double beeps.
+    pub gap_frames_remaining: usize,
+}
+
+impl CallbackState {
+    /// Creates a new callback state with the given sample rate.
+    pub fn new(sample_rate: f32) -> Self {
+        Self {
+            sample_rate,
+            active: false,
+            phase: 0.0,
+            phase_inc: 0.0,
+            gain: 0.0,
+            frames_total: 0,
+            frames_played: 0,
+            attack_frames: ((0.002 * sample_rate).round() as usize).max(1),
+            release_frames: ((0.030 * sample_rate).round() as usize).max(1),
+            pending_active: false,
+            pending_freq: 0.0,
+            pending_gain: 0.0,
+            pending_frames_total: 0,
+            gap_frames_remaining: 0,
+        }
+    }
+
+    /// Starts a beep of the given kind (press, release, or final).
+    pub fn start_beep(&mut self, kind: BeepKind) {
+        match kind {
+            BeepKind::Press => self.set_current_beep(1200.0, 0.045, 0.20),
+            BeepKind::Release => self.set_current_beep(800.0, 0.060, 0.18),
+            BeepKind::Final => {
+                // Double beep: low then high, with a tiny gap (~20ms)
+                self.set_current_beep(780.0, 0.055, 0.18);
+                self.pending_freq = 1200.0;
+                self.pending_gain = 0.17;
+                self.pending_frames_total = (0.060 * self.sample_rate).max(1.0) as usize;
+                self.pending_active = true;
+                self.gap_frames_remaining = (0.020 * self.sample_rate).round() as usize;
+            }
+        }
+    }
+
+    /// Sets the current beep parameters (frequency, duration, gain).
+    pub fn set_current_beep(&mut self, freq: f32, dur_s: f32, gain: f32) {
+        self.phase = 0.0;
+        self.phase_inc = (freq * std::f32::consts::TAU) / self.sample_rate;
+        self.gain = gain;
+        self.frames_total = (dur_s * self.sample_rate).max(1.0) as usize;
+        self.frames_played = 0;
+        self.active = true;
+    }
+
+    /// Generates the next audio sample, advancing the oscillator and envelope.
+    pub fn next_sample(&mut self) -> f32 {
+        if !self.active {
+            if self.gap_frames_remaining > 0 {
+                self.gap_frames_remaining = self.gap_frames_remaining.saturating_sub(1);
+                return 0.0;
+            }
+            if self.pending_active {
+                let freq = self.pending_freq;
+                let gain = self.pending_gain;
+                let total = self.pending_frames_total;
+                self.pending_active = false;
+                self.set_current_beep(freq, total as f32 / self.sample_rate, gain);
+            } else {
+                return 0.0;
+            }
+        }
+        if self.frames_played >= self.frames_total {
+            self.active = false;
+            return 0.0;
+        }
+
+        let s = (self.phase).sin();
+        self.phase += self.phase_inc;
+        if self.phase > std::f32::consts::TAU {
+            self.phase -= std::f32::consts::TAU;
+        }
+        let a = self.frames_played as i32;
+        let env = if a < self.attack_frames as i32 {
+            (a as f32) / (self.attack_frames as f32)
+        } else {
+            let remain = (self.frames_total as i32 - a).max(0) as usize;
+            if remain <= self.release_frames {
+                (remain as f32) / (self.release_frames as f32)
+            } else {
+                1.0
+            }
+        };
+        self.frames_played += 1;
+        (s * self.gain * env).clamp(-0.8, 0.8)
+    }
+}

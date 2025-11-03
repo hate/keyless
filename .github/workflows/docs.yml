@@ -1,0 +1,38 @@
+name: Docs
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  rustdoc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libx11-dev libxi-dev libxtst-dev libxrandr-dev libxext-dev libxrender-dev libxfixes-dev libxcomposite-dev libxcursor-dev libxdo-dev pkg-config
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build docs with warnings as errors
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --workspace --no-deps
+
+      - name: Run doctests
+        run: cargo test --workspace --doc
+
+      - name: Clippy - enforce docs on private items
+        run: cargo clippy --workspace -- -D clippy::missing_docs_in_private_items

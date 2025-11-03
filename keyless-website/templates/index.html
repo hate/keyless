@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+{% block content %}
+  <!-- Header -->
+  <header class="max-w-5xl mx-auto mb-10">
+    <div class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <span class="text-theme-text-secondary">●</span>
+          <span class="text-theme-text-secondary">●</span>
+          <span class="text-theme-text-secondary">●</span>
+        </div>
+        <div class="flex gap-4 text-xs">
+          <a href="https://github.com/hate/keyless" class="text-theme-text-secondary hover:text-theme-text-primary transition-colors flex items-center gap-1">
+            <svg aria-hidden="true" viewBox="0 0 16 16" class="w-4 h-4 fill-current">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+            </svg>[github]
+          </a>
+          <a href="https://github.com/hate/keyless/releases" class="text-theme-text-secondary hover:text-theme-text-primary transition-colors">[releases]</a>
+          <a href="https://github.com/hate/keyless/blob/main/CONTRIBUTING.md" class="text-theme-text-secondary hover:text-theme-text-primary transition-colors">[docs]</a>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <p class="text-theme-text-muted text-sm">$ cat README.md</p>
+        <h1 class="text-3xl md:text-5xl font-extrabold"><span class="gradient-text">keyless</span> <span class="blink align-baseline text-theme-text-primary">█</span></h1>
+        <p class="text-lg text-theme-text-primary">Privacy-first, real-time speech-to-text dictation</p>
+        <p class="text-sm text-theme-text-secondary mt-1">Local-only voice transcription built in Rust. Hold a hotkey, speak, release - your words appear as text.</p>
+      </div>
+      <div class="flex flex-wrap gap-2 text-xs mt-4">
+        <span class="px-3 py-1 bg-theme-bg-medium border border-theme-border rounded text-theme-amber">[rust 1.75+]</span>
+        <span class="px-3 py-1 bg-theme-bg-medium border border-theme-border rounded text-theme-accent-bright">[MIT license]</span>
+        <span class="px-3 py-1 bg-theme-bg-medium border border-theme-border rounded text-theme-purple">[100% local]</span>
+        <span class="px-3 py-1 bg-theme-bg-medium border border-theme-border rounded text-theme-error">[99 languages]</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-5xl mx-auto space-y-8">
+    <!-- Configuration View -->
+    <section class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
+      <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ ./keyless --config</h2>
+      <div class="bg-theme-bg-medium p-3 rounded border border-theme-border">
+        <img src="/images/config.png" alt="Transcription demo" class="w-full h-auto rounded" />
+      </div>
+    </section>
+
+    <section class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
+      <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ ./quick-start</h2>
+      <div class="space-y-4">
+        <div class="bg-theme-bg-medium p-4 rounded border border-theme-border">
+          <p class="text-theme-text-muted text-sm mb-2">
+            Download binary · <a href="https://github.com/hate/keyless/releases" class="text-theme-primary hover:text-theme-accent-bright">Releases</a>
+          </p>
+          <!-- prettier-ignore -->
+          <pre class="font-mono text-sm leading-6 text-theme-text-secondary whitespace-pre"><code class="language-bash"># Download from releases page
+https://github.com/hate/keyless/releases
+
+# Extract and run
+./keyless  # macOS/Linux
+# or
+keyless.exe # Windows</code></pre>
+        </div>
+        <div class="bg-theme-bg-medium p-4 rounded border border-theme-border">
+          <p class="text-theme-text-muted text-sm mb-2"># Install via Cargo (from git)</p>
+          <!-- prettier-ignore -->
+          <pre class="font-mono text-sm leading-6 text-theme-text-secondary whitespace-pre"><code class="language-bash"># Latest main
+cargo install --git https://github.com/hate/keyless --package keyless --locked
+
+# Or pin a release
+cargo install --git https://github.com/hate/keyless --tag v0.1.0 --package keyless --locked
+
+# Update existing install
+cargo install --git https://github.com/hate/keyless --package keyless --locked --force
+
+# Enable CUDA (Linux/Windows with NVIDIA)
+cargo install --git https://github.com/hate/keyless --package keyless --locked --features cuda</code></pre>
+          <p class="text-xs text-theme-text-muted mt-2">
+            Note: CUDA is optional; add <span class="text-theme-text-secondary">--features cuda</span> on NVIDIA systems with the CUDA toolkit. macOS Metal is automatic.
+          </p>
+        </div>
+        <div class="bg-theme-bg-medium p-4 rounded border border-theme-border">
+          <p class="text-theme-text-muted text-sm mb-2"># Build from source</p>
+          <!-- prettier-ignore -->
+          <pre class="font-mono text-sm leading-6 text-theme-text-secondary whitespace-pre"><code class="language-bash">git clone https://github.com/hate/keyless.git
+cd keyless
+cargo build --release
+./target/release/keyless</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Running View -->
+    <section class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
+      <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ ./keyless --demo</h2>
+      <div class="bg-theme-bg-medium p-3 rounded border border-theme-border">
+        <img src="/images/transcribe.png" alt="Transcription demo" class="w-full h-auto rounded" />
+      </div>
+    </section>
+
+    <section class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
+      <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ ls features/</h2>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="border border-theme-border p-4 rounded hover-glow">
+          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-teal">▸</span> Privacy-First Architecture</h3>
+          <ul class="text-sm text-theme-text-secondary space-y-1">
+            <li>• 100% local processing</li>
+            <li>• No cloud, no API keys</li>
+            <li>• All data stays on device</li>
+            <li>• Open-source & auditable</li>
+          </ul>
+        </div>
+        <div class="border border-theme-border p-4 rounded hover-glow">
+          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-teal">▸</span> Real-Time Transcription</h3>
+          <ul class="text-sm text-theme-text-secondary space-y-1">
+            <li>• Live preview while speaking</li>
+            <li>• Push-to-talk control</li>
+            <li>• Computed final transcription</li>
+            <li>• Multilingual (99 languages)</li>
+          </ul>
+        </div>
+        <div class="border border-theme-border p-4 rounded hover-glow">
+          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-teal">▸</span> Smart Quality</h3>
+          <ul class="text-sm text-theme-text-secondary space-y-1">
+            <li>• No-speech detection</li>
+            <li>• Temperature fallback decoding</li>
+            <li>• Auto language detection</li>
+            <li>• Quality metrics tracking</li>
+          </ul>
+        </div>
+        <div class="border border-theme-border p-4 rounded hover-glow">
+          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-teal">▸</span> Performance Optimized</h3>
+          <ul class="text-sm text-theme-text-secondary space-y-1">
+            <li>• GPU acceleration (Metal/CUDA)</li>
+            <li>• Quantized model support</li>
+            <li>• Auto mic rate (device default; prefers 48 kHz; caps high rates)</li>
+            <li>• High-quality resampling (rubato, FFT‑based)</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
+      <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ cat motivation.txt</h2>
+      <p class="text-theme-text-primary leading-relaxed text-sm">Built to create a fast, private dictation workflow using the fewest dependencies possible, entirely in Rust. Audio capture, ML inference, concurrency orchestration, and a responsive terminal UI—all local, no accounts required.</p>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center py-8 border-t border-theme-border mt-12">
+      <p class="text-theme-text-muted text-sm">Built with Rust for privacy, performance, and control</p>
+      <div class="flex justify-center gap-4 mt-4 text-sm">
+        <a href="https://github.com/hate/keyless" class="text-theme-text-secondary hover:text-theme-accent-bright transition-colors inline-flex items-center gap-1">
+          <svg aria-hidden="true" viewBox="0 0 16 16" class="w-4 h-4 fill-current">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+          </svg>GitHub
+        </a>
+        <a href="https://github.com/hate/keyless/blob/main/LICENSE" class="text-theme-text-secondary hover:text-theme-accent-bright transition-colors">MIT License</a>
+        <a href="https://github.com/hate/keyless/blob/main/CONTRIBUTING.md" class="text-theme-text-secondary hover:text-theme-accent-bright transition-colors">Contributing</a>
+      </div>
+    </footer>
+  </main>
+{% endblock %}

@@ -1,0 +1,27 @@
+# Build artifacts
+target/
+
+# macOS
+.DS_Store
+
+# Runtime temporary files (created by keyless-logging and keyless-core)
+.keyless.log.tmp
+*.json.tmp
+
+# Fallback cache directory (if OS cache_dir() fails)
+.cache/
+
+# IDE/Editor 
+.idea/
+.vscode/
+.cursor/
+.rust-analyzer/
+*.swp
+*.swo
+*~
+
+# Backup files (defensive - editor/merge conflicts)
+*.orig
+*.rej
+*.bak
+
