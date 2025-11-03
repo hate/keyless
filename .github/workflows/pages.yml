@@ -25,7 +25,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Rust docs
-        run: cargo doc --workspace --no-deps --all-features
+        run: cargo doc --workspace --no-deps
 
       - name: Install Zola
         uses: taiki-e/install-action@v2
