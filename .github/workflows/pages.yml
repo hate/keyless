@@ -49,7 +49,7 @@ jobs:
         run: |
           zola --root keyless-website build --output-dir public
           mkdir -p public/docs
-          cp -R target/doc/* public/docs/
+          cp -a target/doc/. public/docs/
 
       - name: Disable Jekyll processing
         run: touch public/.nojekyll
