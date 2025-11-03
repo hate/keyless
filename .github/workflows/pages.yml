@@ -34,6 +34,9 @@ jobs:
             libxdo-dev \
             pkg-config
 
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
       - name: Build Rust docs
         run: cargo doc --workspace --no-deps
 
