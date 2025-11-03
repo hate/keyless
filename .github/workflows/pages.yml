@@ -21,6 +21,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Rust docs
+        run: cargo doc --workspace --no-deps --all-features
+
       - name: Install Zola
         uses: taiki-e/install-action@v2
         with:
@@ -29,6 +35,8 @@ jobs:
       - name: Build site
         run: |
           zola --root keyless-website build --output-dir public
+          mkdir -p public/docs
+          cp -R target/doc/* public/docs/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
