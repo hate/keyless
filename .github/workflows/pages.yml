@@ -51,6 +51,9 @@ jobs:
           mkdir -p public/docs
           cp -R target/doc/* public/docs/
 
+      - name: Disable Jekyll processing
+        run: touch public/.nojekyll
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
