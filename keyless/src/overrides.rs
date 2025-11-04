@@ -141,8 +141,7 @@ pub fn apply_overrides(config: &mut Config, ov: &Overrides) {
 }
 
 /// Overrides source used by the TUI; constructed in main from CLI/ENV.
-#[allow(clippy::module_name_repetitions)]
-pub fn overrides_from_env_and_cli(cli: &Cli) -> Overrides {
+pub fn from_env_and_cli(cli: &Cli) -> Overrides {
     // Precedence: CLI > ENV (CLI flags override environment variables).
     // Clone CLI Option<String> to move value into closure (needs owned String).
     let pick_str = |cli_opt: &Option<String>, env_key: &str| -> Option<String> {

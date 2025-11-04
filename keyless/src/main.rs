@@ -72,7 +72,7 @@ fn main() -> ExitCode {
         Ok(Some(cli)) => {
             // Do NOT init stdout logging for the TUI path (prevents alternate screen corruption).
             // Build overrides from CLI flags and ENV vars (CLI takes precedence).
-            let ov = keyless::overrides::overrides_from_env_and_cli(&cli);
+            let ov = keyless::overrides::from_env_and_cli(&cli);
             if let Err(e) = keyless::tui::run_with_overrides(Some(ov)) {
                 // Best-effort error reporting to stderr after TUI exits (terminal restored).
                 // Use stderr to avoid mixing with TUI output if terminal wasn't fully restored.
