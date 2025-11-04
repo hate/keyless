@@ -24,16 +24,23 @@ pub struct RuntimeFeedback {
 impl RuntimeFeedback {
     pub fn new() -> Self {
         Self {
+            // Placeholder until pipeline starts and provides actual device name.
             mic_name: String::from("(not started)"),
             hold_active: false,
             vad_open: false,
             preview_text: String::new(),
             preview_text_updated_at: None,
+            // Capacity 120 ≈ 3 seconds at 40 FPS (assuming one sample per frame).
+            // Fixed-size circular buffer; oldest samples evicted via pop_front when full.
             rms_history: VecDeque::with_capacity(120),
+            // Spectrum bars populated by audio worker; empty until first update.
             spectrum_bars: Vec::new(),
+            // Capacity 200 keeps ~200 log lines in memory; oldest evicted when full.
+            // Sized for typical session length without excessive memory usage.
             logs: VecDeque::with_capacity(200),
             session_words: 0,
             session_talk_ms: 0,
+            // None until first tick; used to calculate delta for talk time accumulation.
             last_tick: None,
         }
     }

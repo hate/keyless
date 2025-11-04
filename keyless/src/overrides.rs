@@ -59,18 +59,22 @@ pub struct Overrides {
 /// set in `ov` will override the corresponding field in `config`.
 pub fn apply_overrides(config: &mut Config, ov: &Overrides) {
     if let Some(v) = ov.model.as_ref() {
+        // Trim whitespace from model ID/path; reject empty strings (defensive).
         let t = v.trim();
         if !t.is_empty() {
             config.model_path = PathBuf::from(t);
         }
     }
     if let Some(v) = ov.language.as_ref() {
+        // Trim whitespace from language code; reject empty strings (None = auto-detect).
         let t = v.trim();
         if !t.is_empty() {
             config.language = Some(t.to_string());
         }
     }
     if let Some(v) = ov.sink.as_ref() {
+        // Parse sink string (paste/clipboard/file); ignore parse errors (invalid strings ignored).
+        // File mode not set here (handled by file override below); only Paste/Clipboard applied.
         match OutputMode::from_str(v.trim()) {
             Ok(OutputMode::Paste) => config.output_mode = OutputMode::Paste,
             Ok(OutputMode::Clipboard) => config.output_mode = OutputMode::Clipboard,
@@ -79,23 +83,28 @@ pub fn apply_overrides(config: &mut Config, ov: &Overrides) {
         }
     }
     if let Some(p) = ov.file.as_ref() {
+        // File path override: trim whitespace, reject empty strings.
+        // Takes precedence over sink=file parsing above (explicit path provided).
         let t = p.trim();
         if !t.is_empty() {
             config.output_mode = OutputMode::File(PathBuf::from(t));
         }
     }
     if let Some(v) = ov.device.as_ref() {
+        // Trim whitespace from device name; reject empty strings (None = use default).
         let t = v.trim();
         if !t.is_empty() {
             config.device_name = Some(t.to_string());
         }
     }
     if let Some(v) = ov.hotkey.as_ref() {
+        // Trim whitespace from hotkey string; reject empty strings (prevent invalid config).
         let t = v.trim();
         if !t.is_empty() {
             config.hotkey = t.to_string();
         }
     }
+    // VAD overrides: direct assignment (no clamping; user may want extreme values).
     if let Some(f) = ov.vad_start {
         config.vad.start_db = f;
     }
@@ -108,6 +117,7 @@ pub fn apply_overrides(config: &mut Config, ov: &Overrides) {
     if let Some(s) = ov.vad_max_silence {
         config.vad.max_silence_ms = s;
     }
+    // EQ overrides: clamp to valid ranges to prevent invalid audio processing parameters.
     if let Some(b) = ov.eq_bands {
         config.eq.bands = b.clamp(EQ_BANDS_MIN, EQ_BANDS_MAX);
     }
@@ -126,21 +136,25 @@ pub fn apply_overrides(config: &mut Config, ov: &Overrides) {
     if let Some(d) = ov.eq_decay {
         config.eq.decay = d.clamp(EQ_DECAY_MIN, EQ_DECAY_MAX);
     }
+    // Validate config after applying all overrides; ignore result (errors logged internally).
     let _ = config.validate();
 }
 
 /// Overrides source used by the TUI; constructed in main from CLI/ENV.
 #[allow(clippy::module_name_repetitions)]
 pub fn overrides_from_env_and_cli(cli: &Cli) -> Overrides {
-    // precedence: CLI > ENV
+    // Precedence: CLI > ENV (CLI flags override environment variables).
+    // Clone CLI Option<String> to move value into closure (needs owned String).
     let pick_str = |cli_opt: &Option<String>, env_key: &str| -> Option<String> {
         if let Some(v) = cli_opt.clone() {
             Some(v)
         } else {
+            // Fallback to ENV var if CLI flag not set; ok() converts Result to Option.
             std::env::var(env_key).ok()
         }
     };
 
+    // Parse f32 from ENV if CLI flag not set; ignore parse errors (invalid strings = None).
     let pick_f32 = |cli_opt: Option<f32>, env_key: &str| -> Option<f32> {
         cli_opt.or_else(|| {
             std::env::var(env_key)
@@ -149,6 +163,7 @@ pub fn overrides_from_env_and_cli(cli: &Cli) -> Overrides {
         })
     };
 
+    // Parse u16 from ENV if CLI flag not set; ignore parse errors (invalid strings = None).
     let pick_u16 = |cli_opt: Option<u16>, env_key: &str| -> Option<u16> {
         cli_opt.or_else(|| {
             std::env::var(env_key)

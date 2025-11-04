@@ -19,7 +19,8 @@ pub fn draw_config(
 ) {
     let full = f.area();
 
-    // Dynamic footer height based on the footer content and available width (generic estimator)
+    // Compute footer height from hotkey segments and terminal width (cells).
+    // This prevents the footer from wrapping unexpectedly when the screen is narrow.
     let segs = if app
         .overlays
         .expert
@@ -37,6 +38,8 @@ pub fn draw_config(
 
     let layout = Layout::default()
         .direction(Direction::Vertical)
+        // Reserve at least 10 rows for content; footer is exact length computed above.
+        // Using fixed footer length avoids layout jitter across frames.
         .constraints([Constraint::Min(10), Constraint::Length(lines_needed)])
         .split(full);
 
@@ -51,20 +54,24 @@ pub fn draw_config(
         main_outer,
     );
     let mut content = main_outer;
+    // Shrink to inner content area (1-cell border on all sides).
+    // Use saturating ops to avoid underflow on very small terminals.
     content.x += 1;
     content.y += 1;
     content.width = content.width.saturating_sub(2);
     content.height = content.height.saturating_sub(2);
 
+    // Heuristic height for sinks panel: items + 2 (title/padding), capped at 6 rows.
+    // Small cap keeps the top area from starving models/languages.
     let sink_height: u16 = ((sinks_list.len() as u16) + 2).min(6);
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),                  // Top info (metrics + warnings)
-            Constraint::Length(sink_height.max(5)), // Sinks
+            Constraint::Length(sink_height.max(5)), // Sinks (min 5 rows for readability)
             Constraint::Min(10),                    // Models + (Languages/Devices)
-            Constraint::Length(7),                  // VAD + Logs
+            Constraint::Length(7),                  // VAD + Logs (fixed to avoid flicker)
         ])
         .split(content);
     // Brand overlay: render title intersecting the top frame border
@@ -72,6 +79,8 @@ pub fn draw_config(
         use crate::tui::widgets::brand::{BrandOptions, render_brand};
         let brand_area = ratatui::layout::Rect {
             x: main_outer.x,
+            // Lift the brand one cell above to overlap the outer border.
+            // `saturating_sub` prevents underflow when y == 0.
             y: main_outer.y.saturating_sub(1),
             width: main_outer.width,
             height: 1,
@@ -100,6 +109,7 @@ pub fn draw_config(
         Span::raw("    "),
         Span::styled("time: ", Theme::label()),
         Span::styled(
+            // Convert milliseconds to HH:MM:SS string; assumes ms are monotonic counters.
             keyless_core::utils::fmt_hms(app.lifetime_talk_ms),
             Theme::text_primary(),
         ),
@@ -110,6 +120,8 @@ pub fn draw_config(
     // Warnings / file path (rendered below metrics)
     let mut warn_lines: Vec<Line> = Vec::new();
     if matches!(app.selections.sink_choice, SinkChoice::File) {
+        // File sink: show current path and edit state. `file_path` is cloned to avoid
+        // borrowing across UI composition. Encoding assumed UTF-8 for display.
         let mut spans = vec![
             Span::styled("file: ", Theme::label()),
             Span::styled(app.selections.file_path.clone(), Colors::text_primary()),
@@ -130,6 +142,7 @@ pub fn draw_config(
         ));
         warn_lines.push(Line::from(spans));
     } else {
+        // Show the most recent error (if any) and permission warnings gathered at startup.
         if let Some(err) = &app.overlays.error_message {
             warn_lines.push(Line::from(vec![
                 Span::styled("error: ", Theme::warn()),
@@ -146,6 +159,7 @@ pub fn draw_config(
         }
     }
     if !warn_lines.is_empty() {
+        // Only render the warnings box when there is content to avoid consuming vertical space.
         let warning_p = Paragraph::new(warn_lines);
         f.render_widget(warning_p, extra_rows[1]);
     }
@@ -160,6 +174,7 @@ pub fn draw_config(
         .split(chunks[2]);
 
     // Left: Models
+    // Build an O(1) membership set for installed models; allocates proportional to count.
     let installed_set: std::collections::HashSet<String> =
         app.models.discovered.iter().cloned().collect();
     models::render_models(
@@ -213,11 +228,13 @@ pub fn draw_config(
 
     // Expert overlay (centered)
     if app.expert_mode() {
+        // Render after footer so overlay sits on top of lower widgets.
         expert::render_expert(f, full, app);
     }
 
     // Download overlay (centered, modal)
     if app.is_downloading() {
+        // Two states: transient "loading" (no progress) vs active download.
         let is_loading = app
             .overlays
             .download
@@ -257,7 +274,7 @@ pub fn draw_config(
                 ])
                 .alignment(Alignment::Center)
             });
-        // center a box for message + gauge
+        // Center a box for message + gauge. The middle 4 rows are dedicated to content.
         let outer = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -275,10 +292,11 @@ pub fn draw_config(
             ])
             .split(outer);
         let area = inner_cols[1];
-        // Clear the background to make overlay opaque
+        // Clear the background to make overlay opaque and avoid bleed-through.
         f.render_widget(Clear, area);
         f.render_widget(overlay, area);
         let mut msg_area = area;
+        // Inset by 2 cells horizontally to avoid text hugging the border.
         msg_area.x += 2;
         msg_area.y += 1;
         msg_area.width = msg_area.width.saturating_sub(4);
@@ -289,11 +307,11 @@ pub fn draw_config(
             .as_ref()
             .map(|d| d.message.as_str())
             .unwrap_or("this may take a few minutes on first run...");
-        // If text starts with percentage (e.g., "75% model..."), hide it from display
+        // If text starts with a percentage (e.g., "75% model..."), hide it to reduce noise.
         let display_text = if let Some(pct_end) = text.find('%') {
             let before_pct = &text[..pct_end];
             if before_pct.trim().parse::<u16>().is_ok() {
-                // Skip past "NN% " to hide the percentage from user
+                // Skip past "NN% ". Assumes percentage fits in u16 and precedes '%'.
                 text.get(pct_end + 1..).unwrap_or(text).trim_start()
             } else {
                 text
@@ -309,11 +327,11 @@ pub fn draw_config(
         } else {
             Theme::text_primary()
         };
-        // render primary line
+        // Render primary line; keep same bg as overlay for a seamless modal look.
         let p = Paragraph::new(Line::from(vec![Span::styled(display_text, stage_style)]))
             .style(Style::default().bg(Colors::bg_selected()));
         f.render_widget(p, msg_area);
-        // render gauge on second line if percent known
+        // Render gauge on the second line if a percentage can be parsed.
         let mut gauge_area = msg_area;
         gauge_area.y = gauge_area.y.saturating_add(1);
         if let Some(pct_end) = text.find('%') {
@@ -323,6 +341,7 @@ pub fn draw_config(
                     .gauge_style(Theme::selected())
                     .style(Style::default().bg(Colors::bg_selected()))
                     .ratio({
+                        // Clamp to [0,1]. Use 1.0 when nearing completion and ETA reports 0s.
                         let r = val as f64 / 100.0;
                         if val >= 99 && text.contains("ETA 0s") {
                             1.0
@@ -360,6 +379,7 @@ pub fn draw_config(
             let area = cols[1];
             f.render_widget(toast, area);
             let mut msg = area;
+            // One-line message centered horizontally; trim margins to avoid wrapping.
             msg.x += 2;
             msg.y += 1;
             msg.width = msg.width.saturating_sub(4);

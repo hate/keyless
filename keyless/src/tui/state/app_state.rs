@@ -55,40 +55,47 @@ pub struct AppState {
 impl AppState {
     /// Create a new AppState by loading config from disk and applying overrides.
     pub fn new(overrides: Option<&Overrides>) -> Self {
-        // 1) Hydrate config from disk, then apply non-persistent overrides for the current run
+        // Load config from disk; use defaults if file missing/invalid (allows first-run).
+        // Overrides are non-persistent (e.g., CLI flags) and applied on top of saved config.
         let mut defaults = storage::load_config().unwrap_or_default();
         if let Some(ov) = overrides {
             apply_overrides(&mut defaults, ov);
         }
 
-        // 2) Derive initial UI selections from config
+        // Derive sink choice from config output mode; File path extracted separately below.
         let sink_choice = match defaults.output_mode {
             OutputMode::Paste => SinkChoice::Paste,
             OutputMode::Clipboard => SinkChoice::Clipboard,
             OutputMode::File(_) => SinkChoice::File,
         };
+        // Default file path if not specified in config; updated if File mode has a path.
         let mut file_path = String::from("/tmp/keyless.txt");
         if let OutputMode::File(p) = &defaults.output_mode {
+            // Convert PathBuf to String for UI display; assumes UTF-8 path encoding.
             file_path = p.display().to_string();
         }
 
-        // Model/language indices will be hydrated in init.rs after catalog is populated
-        // Start at 0; init.rs will update to match saved config
+        // Model/language indices start at 0; init.rs will hydrate them after catalog discovery.
+        // Cannot set here because runtime_list isn't populated until init runs.
         let model_idx = 0;
         let language_idx = 0;
 
-        // 3) Enumerate devices once at startup; store display names for the UI
+        // Enumerate devices once at startup (OS call); empty vec if enumeration fails.
+        // Device names are cloned for UI display; "(unknown)" fallback if name() fails.
         let devices = list_input_devices().unwrap_or_default();
         let device_names: Vec<String> = devices
             .iter()
             .map(|d| d.name().unwrap_or_else(|_| "(unknown)".to_string()))
             .collect();
         let device_idx = {
-            // Prefer the saved device by name → else fallback to OS default → else index 0
+            // Three-tier fallback: saved device name → OS default → index 0.
+            // Position search finds index by name match; falls back to 0 if not found.
             if let Some(cfg) = defaults.device_name.as_ref() {
+                // Try saved device name first (most preferred).
                 if let Some(pos) = device_names.iter().position(|d| d == cfg) {
                     pos
                 } else if let Ok(def) = keyless_audio::input::default_input_device() {
+                    // Saved device not found; try OS default by name.
                     if let Ok(name) = def.name() {
                         device_names.iter().position(|d| d == &name).unwrap_or(0)
                     } else {
@@ -98,12 +105,14 @@ impl AppState {
                     0
                 }
             } else if let Ok(def) = keyless_audio::input::default_input_device() {
+                // No saved device; use OS default by name.
                 if let Ok(name) = def.name() {
                     device_names.iter().position(|d| d == &name).unwrap_or(0)
                 } else {
                     0
                 }
             } else {
+                // No OS default available; use first device (index 0).
                 0
             }
         };
@@ -118,6 +127,7 @@ impl AppState {
             device_idx,
         );
 
+        // Copy VAD thresholds from config (Copy types, no clone needed).
         let vad = VadThresholds {
             start_db: defaults.vad.start_db,
             stop_db: defaults.vad.stop_db,
@@ -125,6 +135,8 @@ impl AppState {
             max_silence_ms: defaults.vad.max_silence_ms,
         };
 
+        // Check permissions based on sink choice (paste requires Accessibility on macOS).
+        // Empty device_names indicates no mic detected (permission issue or hardware missing).
         let needs_paste = matches!(sink_choice, SinkChoice::Paste);
         let perm_warnings = keyless_core::permissions::gather_permission_warnings(
             needs_paste,

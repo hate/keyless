@@ -25,6 +25,7 @@ pub fn render_footer(
 
     // Inner content area
     let mut inner = area;
+    // Inset by 1 cell on all sides to account for border; saturating ops prevent underflow.
     inner.x += 1;
     inner.y += 1;
     inner.width = inner.width.saturating_sub(2);
@@ -40,12 +41,17 @@ pub fn render_footer(
         segments_for_footer()
     };
     let mut spans: Vec<Span> = Vec::new();
+
+    // Track whether the previous segment was a hotkey token to bridge gaps correctly.
+    // Without this, wrapping can split "[esc] cancel" mid-way.
     let mut prev_was_token = false;
     for seg in &segs {
         match seg {
             HotkeySeg::Text(t) => {
                 if prev_was_token {
-                    // Replace only the first leading space with NBSP to keep token+label together
+                    // Replace the first leading space with non-breaking space (U+00A0) to prevent
+                    // wrapping between a hotkey token and its label. Only affects the first space
+                    // to avoid breaking intentional spacing elsewhere.
                     let bridged = if t.starts_with(' ') {
                         t.replacen(" ", "\u{00A0}", 1)
                     } else {
@@ -59,6 +65,7 @@ pub fn render_footer(
             }
             HotkeySeg::Single(k) => {
                 let style = if expert_confirm {
+                    // Confirm mode: color-code y/n/esc for fast visual scanning of action keys.
                     match *k {
                         "esc" => Style::default()
                             .fg(Colors::accent_bright())
@@ -74,6 +81,7 @@ pub fn render_footer(
                             .add_modifier(Modifier::BOLD),
                     }
                 } else {
+                    // Normal/expert mode: color by semantic role (navigation, destructive, etc.).
                     match *k {
                         "enter" => Style::default()
                             .fg(Colors::text_primary())
@@ -101,6 +109,8 @@ pub fn render_footer(
                 prev_was_token = true;
             }
             HotkeySeg::Combo(l, r) => {
+                // Color-code combo keys by functional group: navigation (arrows/brackets),
+                // VAD controls (left/right channel pairs), and device selection.
                 let style = match (*l, *r) {
                     ("←", "→") | ("↑", "↓") | ("[", "]") => Style::default()
                         .fg(Colors::text_primary())
@@ -125,15 +135,20 @@ pub fn render_footer(
     }
 
     // Append dynamic hotkey segment: [h] hotkey: {hotkey_text}
+    // This is appended after static segments so it always appears last, regardless of mode.
     {
         use crate::tui::widgets::hotkey::hotkey_single;
         spans.push(Span::raw("  "));
         let token_style = Theme::text_primary().add_modifier(Modifier::BOLD);
         spans.extend(hotkey_single("h", token_style));
         spans.push(Span::raw(" hotkey: "));
+        // Clone hotkey_text here; caller owns the string and we need owned for Span.
         spans.push(Span::styled(hotkey_text.to_string(), Theme::value_accent()));
     }
 
+    // Center-align footer text and enable wrapping with trim (removes trailing whitespace
+    // on wrapped lines). Wrapping is necessary for narrow terminals where footer content
+    // exceeds available width.
     let hints = Paragraph::new(Line::from(spans))
         .alignment(Alignment::Center)
         .wrap(Wrap { trim: true });

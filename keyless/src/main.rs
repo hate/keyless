@@ -38,22 +38,27 @@ use keyless::Cli;
 fn handle_top_level_flags() -> Result<Option<Cli>, String> {
     let cli = Cli::parse();
     if cli.list_devices {
-        // Enable CLI logging formatting for non-TUI output
+        // Enable CLI logging formatting for non-TUI output (stdout is safe here).
+        // TUI path avoids stdout logging to prevent tearing alternate screen buffer.
         keyless_logging::init_stdout();
         match keyless_audio::input::list_input_device_names() {
             Ok(list) => {
+                // Empty list: show helpful message instead of blank output.
                 if list.is_empty() {
                     println!("(no input devices)");
                 } else {
+                    // Print index:name pairs; enumerate provides 0-based indices for user reference.
                     for (i, n) in list.iter().enumerate() {
                         println!("{}: {}", i, n);
                     }
                 }
             }
             Err(e) => {
+                // Print error to stdout (non-TUI path); user expects to see it.
                 println!("failed to list devices: {}", e);
             }
         }
+        // Early return: list-devices handled, don't start TUI.
         return Ok(None);
     }
     Ok(Some(cli))
@@ -65,10 +70,12 @@ fn main() -> ExitCode {
     match handle_top_level_flags() {
         Ok(None) => ExitCode::SUCCESS, // handled and printed, exit early
         Ok(Some(cli)) => {
-            // Do NOT init stdout logging for the TUI path
+            // Do NOT init stdout logging for the TUI path (prevents alternate screen corruption).
+            // Build overrides from CLI flags and ENV vars (CLI takes precedence).
             let ov = keyless::overrides::overrides_from_env_and_cli(&cli);
             if let Err(e) = keyless::tui::run_with_overrides(Some(ov)) {
-                // Best-effort error reporting to stderr after TUI exits
+                // Best-effort error reporting to stderr after TUI exits (terminal restored).
+                // Use stderr to avoid mixing with TUI output if terminal wasn't fully restored.
                 eprintln!("tui error: {}", e);
                 ExitCode::FAILURE
             } else {
@@ -76,6 +83,7 @@ fn main() -> ExitCode {
             }
         }
         Err(e) => {
+            // Flag parsing error: report to stderr before any TUI initialization.
             eprintln!("flag handling error: {}", e);
             ExitCode::FAILURE
         }

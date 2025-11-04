@@ -13,11 +13,13 @@ use super::{eq, footer, status};
 pub fn draw_dictating(f: &mut ratatui::Frame, app: &AppState, sink_label: &str) {
     let full = f.area();
 
-    // Footer height based on actual hotkey content (exact wrap measurement)
+    // Compute footer height from hotkey segments and terminal width to prevent wrapping.
+    // This ensures the footer fits exactly and avoids layout jitter across frames.
     let segs = footer::segments_for_footer();
     let footer_lines = crate::tui::widgets::hotkey::measure_lines_needed(full.width, &segs);
 
-    // Top framed content + footer, mirroring config view
+    // Top framed content + footer, mirroring config view layout structure.
+    // Reserve at least 10 rows for content; footer uses exact computed length.
     let frame_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(10), Constraint::Length(footer_lines)])
@@ -34,12 +36,15 @@ pub fn draw_dictating(f: &mut ratatui::Frame, app: &AppState, sink_label: &str) 
         main_outer,
     );
     let mut content = main_outer;
+    // Shrink to inner content area (1-cell border on all sides).
+    // Use saturating ops to avoid underflow on very small terminals.
     content.x += 1;
     content.y += 1;
     content.width = content.width.saturating_sub(2);
     content.height = content.height.saturating_sub(2);
 
-    // Inner layout: input card + status + waveform + logs
+    // Inner layout: input card + status + waveform + logs.
+    // Fixed heights for card/status; percentage for waveform; Min(6) ensures logs are readable.
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -50,11 +55,13 @@ pub fn draw_dictating(f: &mut ratatui::Frame, app: &AppState, sink_label: &str) 
         ])
         .split(content);
 
-    // Brand overlay: render title intersecting the top frame border
+    // Brand overlay: render title intersecting the top frame border.
+    // Lifts the brand one cell above to overlap the outer border.
     {
         use crate::tui::widgets::brand::{BrandOptions, render_brand};
         let brand_area = Rect {
             x: main_outer.x,
+            // `saturating_sub` prevents underflow when y == 0.
             y: main_outer.y.saturating_sub(1),
             width: main_outer.width,
             height: 1,
@@ -108,11 +115,15 @@ fn render_input_card(f: &mut ratatui::Frame, app: &AppState, sink_label: &str, a
         .title_style(Style::default().fg(Colors::text_primary()));
     f.render_widget(input_block, area);
     let mut inner = area;
+    // Inset by 2 cells horizontally (more than standard 1) for card aesthetics.
+    // Vertical inset is 1 cell; saturating ops prevent underflow.
     inner.x += 2;
     inner.y += 1;
     inner.width = inner.width.saturating_sub(4);
     inner.height = inner.height.saturating_sub(2);
 
+    // Four-row layout: blank padding, info row 1, info row 2, blank padding.
+    // Blank rows provide visual breathing room inside the card.
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -132,6 +143,7 @@ fn render_input_card(f: &mut ratatui::Frame, app: &AppState, sink_label: &str, a
             Constraint::Percentage(30),
         ])
         .split(rows[1]);
+    // Borrow mic_name from app state; no clone needed since we're just rendering.
     let row1_left = Paragraph::new(ratatui::text::Line::from(vec![
         ratatui::text::Span::styled("mic: ", Theme::label()),
         ratatui::text::Span::styled(
@@ -140,6 +152,7 @@ fn render_input_card(f: &mut ratatui::Frame, app: &AppState, sink_label: &str, a
         ),
     ]));
     f.render_widget(row1_left, cols1[0]);
+    // Match sink color to choice enum for visual consistency with config screen.
     let sink_color = match app.selections.sink_choice {
         SinkChoice::Paste => Colors::sink_paste(),
         SinkChoice::Clipboard => Colors::sink_clipboard(),
@@ -150,7 +163,7 @@ fn render_input_card(f: &mut ratatui::Frame, app: &AppState, sink_label: &str, a
         ratatui::text::Span::styled(sink_label, Style::default().fg(sink_color)),
     ]));
     f.render_widget(row1_mid, cols1[1]);
-    // time value (white)
+    // Time value converted from milliseconds to HH:MM:SS string; assumes monotonic counter.
     let row1_right = Paragraph::new(ratatui::text::Line::from(vec![
         ratatui::text::Span::styled("time: ", Theme::label()),
         ratatui::text::Span::styled(
@@ -161,15 +174,20 @@ fn render_input_card(f: &mut ratatui::Frame, app: &AppState, sink_label: &str, a
     f.render_widget(row1_right, cols1[2]);
 
     // model | language | words
+    // Lookup model name from runtime list; fallback to "unknown" if index is out of bounds.
+    // Assumes upstream logic keeps model_idx valid, but defensive fallback prevents panic.
     let model_name = app
         .models
         .runtime_list
         .get(app.selections.model_idx)
         .map(|s| s.as_str())
         .unwrap_or("unknown");
+    // Language label logic: index 0 is "auto" (multilingual models), indices 1+ map to
+    // LANG_CODES with offset -1. Fallback to "en" if index is out of bounds.
     let lang_label = if app.selections.language_idx == 0 {
         "★ auto".to_string()
     } else {
+        // Subtract 1 because index 0 is reserved for "auto"; LANG_CODES starts at index 0.
         let code = keyless_core::options::LANG_CODES
             .get(app.selections.language_idx - 1)
             .copied()
@@ -194,6 +212,7 @@ fn render_input_card(f: &mut ratatui::Frame, app: &AppState, sink_label: &str, a
         ratatui::text::Span::styled(lang_label, Style::default().fg(Colors::error_pink())),
     ]));
     f.render_widget(row2_mid, cols2[1]);
+    // Format word count as string; allocates each frame but acceptable for TUI budget.
     let row2_right = Paragraph::new(ratatui::text::Line::from(vec![
         ratatui::text::Span::styled("words: ", Theme::label()),
         ratatui::text::Span::styled(

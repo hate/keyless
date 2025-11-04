@@ -24,23 +24,29 @@ pub fn run_with_overrides(overrides: Option<Overrides>) -> io::Result<()> {
     let mut ctx = context::RuntimeContext::build(overrides.as_ref())?;
 
     loop {
-        // Drain channels every frame
+        // Drain channels every frame to update UI state from background workers.
+        // Non-blocking drains ensure UI remains responsive even if workers produce many events.
         drains::drain_channels(&mut ctx);
+        // Ignore DrainResult; download overlay clearing is handled internally.
         let _ = drains::drain_download_events(&mut ctx);
 
-        // Config screen initialization (catalog, discovery, restore selections)
+        // Config screen initialization (catalog, discovery, restore selections).
+        // Only runs once when entering Config screen (checked via sizes_started flag).
         if matches!(ctx.app.screen, Screen::Config) {
             init::init_config_screen(&mut ctx);
         }
 
-        // Update cached runtime_list only if it changed
+        // Update cached runtime_list only if it changed to avoid per-frame allocation.
+        // Clone only when necessary; comparison is cheap (Vec equality check).
         if ctx.runtime_list_cache != ctx.app.models.runtime_list {
             ctx.runtime_list_cache = ctx.app.models.runtime_list.clone();
         }
 
-        // Render
+        // Render: convert cached String list to &str slice for draw functions.
+        // Using cache avoids cloning runtime_list every frame.
         ctx.terminal.draw(|f| match ctx.app.screen {
             Screen::Config => {
+                // Collect references to avoid lifetime issues; small alloc acceptable per frame.
                 let runtime_refs: Vec<&str> =
                     ctx.runtime_list_cache.iter().map(|s| s.as_str()).collect();
                 crate::tui::config::draw_config(f, &ctx.app, ctx.sink_items, &runtime_refs)
@@ -48,6 +54,7 @@ pub fn run_with_overrides(overrides: Option<Overrides>) -> io::Result<()> {
             Screen::Dictating => crate::tui::dictating::draw_dictating(
                 f,
                 &ctx.app,
+                // Borrow sink_label from pipeline if available; empty string fallback if not started.
                 ctx.pipeline
                     .as_ref()
                     .map(|p| p.sink_label.as_str())
@@ -55,7 +62,8 @@ pub fn run_with_overrides(overrides: Option<Overrides>) -> io::Result<()> {
             ),
         })?;
 
-        // Poll input
+        // Poll input with 33ms timeout (~30 FPS). Non-blocking poll ensures periodic tasks run
+        // even when no input is available. Only process if a key event is actually available.
         if crossterm::event::poll(Duration::from_millis(33))?
             && let Event::Key(key) = event::read()?
         {
@@ -65,7 +73,7 @@ pub fn run_with_overrides(overrides: Option<Overrides>) -> io::Result<()> {
             }
         }
 
-        // Periodic tasks
+        // Periodic tasks: size refresh, PTT heartbeat. Throttled internally to ~250ms.
         periodic::tick(&mut ctx);
     }
 

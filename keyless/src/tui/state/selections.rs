@@ -42,6 +42,7 @@ impl Selections {
 impl SinkChoice {
     /// Convert to UI list index for rendering.
     pub fn to_index(self) -> usize {
+        // Fixed mapping: Paste=0, Clipboard=1, File=2 (matches sink_items array order).
         match self {
             SinkChoice::Paste => 0,
             SinkChoice::Clipboard => 1,
@@ -51,6 +52,7 @@ impl SinkChoice {
 
     /// Convert from UI list index.
     pub fn from_index(idx: usize) -> Self {
+        // Default to File for any index >= 2 (defensive fallback for OOB indices).
         match idx {
             0 => SinkChoice::Paste,
             1 => SinkChoice::Clipboard,

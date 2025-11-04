@@ -15,8 +15,11 @@ pub struct ModelCatalog {
 impl ModelCatalog {
     pub fn new() -> Self {
         Self {
+            // Populated during init by merging official models + discovered local repos.
             runtime_list: Vec::new(),
+            // Model sizes (bytes) keyed by model ID; populated asynchronously from cache/remote.
             sizes: HashMap::new(),
+            // Local Whisper repos found in keyless cache directory.
             discovered: Vec::new(),
         }
     }

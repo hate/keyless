@@ -50,6 +50,7 @@ pub struct ExpertOverlay {
 impl ExpertOverlay {
     pub fn new() -> Self {
         Self {
+            // Start with first parameter (Bands) selected when expert mode opens.
             selected: EqParameter::Bands,
             confirm_reset: false,
             confirm_purge: false,

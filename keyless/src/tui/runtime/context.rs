@@ -44,7 +44,8 @@ pub struct RuntimeContext {
 impl RuntimeContext {
     /// Build runtime context with channels, flags, and terminal setup.
     pub fn build(overrides: Option<&Overrides>) -> io::Result<Self> {
-        // Restore terminal on panic
+        // Install panic hook to restore terminal state on crash (prevents terminal corruption).
+        // Hook disables raw mode and exits alternate screen so shell remains usable.
         let prev_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
             let _ = disable_raw_mode();
@@ -56,30 +57,35 @@ impl RuntimeContext {
             prev_hook(info);
         }));
 
+        // Enable raw mode: disables line buffering and echo for immediate keypress handling.
         enable_raw_mode()?;
         let mut stdout = io::stdout();
+        // Enter alternate screen: provides clean canvas for TUI, hides scrollback.
         crossterm::execute!(stdout, crossterm::terminal::EnterAlternateScreen)?;
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
+        // Clear screen to ensure clean initial state (removes any existing content).
         terminal.clear()?;
 
         let app = AppState::new(overrides);
 
-        // Create channels
+        // Create channels: bidirectional communication between UI and background workers.
         let (channels, receivers) = Channels::new();
 
-        // Shared PTT flags
+        // Shared PTT flags: atomic flags shared between UI thread and hotkey listener thread.
         let hold_flag = Arc::new(AtomicBool::new(false));
+        // Detect shift modifier from hotkey string; preset_mode 1 = coarse adjustment.
         let preset_mode = Arc::new(std::sync::atomic::AtomicU8::new(
             if app.hotkey.contains("shift") { 1 } else { 0 },
         ));
         let ptt_stop = Arc::new(AtomicBool::new(false));
         let ptt_enabled = Arc::new(AtomicBool::new(false));
 
-        // Route tracing logs into the TUI log pane
+        // Route tracing logs into the TUI log pane for unified logging.
         keyless_logging::init_channel(channels.ui.tx_log.clone());
 
-        // Spawn global hotkey listener
+        // Spawn global hotkey listener; continue even if spawn fails (user can restart).
+        // On failure, spawn a no-op thread to avoid Option handling elsewhere.
         let ptt_handle = super::ptt::spawn_listener(
             Arc::clone(&preset_mode),
             Arc::clone(&ptt_enabled),
@@ -126,11 +132,15 @@ impl RuntimeContext {
 
     /// Teardown: stop workers, disable raw mode, restore terminal.
     pub fn teardown(self) -> io::Result<()> {
+        // Stop pipeline workers if active: audio capture and transcription threads.
+        // Ignore errors from stop() calls; teardown continues even if workers fail to stop cleanly.
         if let Some(pipeline) = self.pipeline {
             let _ = pipeline.audio.stop();
             pipeline.transcriber.stop();
         }
+        // Disable raw mode: restore normal terminal line buffering and echo.
         disable_raw_mode()?;
+        // Exit alternate screen and show cursor: restore terminal to pre-TUI state.
         crossterm::execute!(
             io::stdout(),
             crossterm::terminal::LeaveAlternateScreen,
