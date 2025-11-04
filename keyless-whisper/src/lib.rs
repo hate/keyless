@@ -134,9 +134,11 @@ static DEVICE_CACHE: std::sync::OnceLock<Device> = std::sync::OnceLock::new();
 ///
 /// Safe to call multiple times; the device is selected only once per process.
 pub fn preload_device() -> Device {
+    // Check cache first (device selection is expensive; avoid repeated GPU probes).
     if let Some(d) = DEVICE_CACHE.get() {
         return d.clone();
     }
+    // Fallback chain: Metal (macOS) → CUDA (Linux/Windows) → CPU (always available).
     let device = match Device::new_metal(0) {
         Ok(d) => {
             info!("using Metal GPU device");
@@ -147,14 +149,17 @@ pub fn preload_device() -> Device {
                 info!("using CUDA GPU device");
                 d
             }
+            // CPU fallback (slower but always works).
             Err(_) => {
                 info!("using CPU device");
                 Device::Cpu
             }
         },
     };
-    // Best-effort kernel warm-up; ignore errors
+    // Best-effort kernel warm-up (first tensor op often slower; this primes the driver).
+    // Ignore errors (warm-up failure doesn't prevent inference).
     let _ = Tensor::zeros((1,), DType::F32, &device);
+    // Cache device for reuse (OnceLock ensures single initialization).
     let _ = DEVICE_CACHE.set(device.clone());
     device
 }
@@ -318,10 +323,16 @@ impl Whisper {
     where
         F: FnMut(WhisperLoadPhase, PhaseState),
     {
+        // Channel sizes: audio frames (512), events (16), inference (1).
+        // 512 audio frames: buffer ~10s at 48kHz/1024-frame chunks (prevents audio dropouts).
         let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(512);
+        // 16 events: enough for bursty Partial/Final events without blocking.
         let (tx_evt, rx_evt) = mpsc::sync_channel::<TranscriptionEvent>(16);
+        // Unbounded channel for shutdown (low-frequency, don't want to block drop()).
         let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>();
+        // Unbounded channel for commands (low-frequency, don't want to block end_segment()).
         let (cmd_tx, cmd_rx) = mpsc::channel::<WhisperCmd>();
+        // Size 1 inference channel: serializes inference requests (only one runs at a time).
         let (inf_tx, inf_rx) = mpsc::sync_channel::<InferReq>(1);
 
         // Initialize or reuse cached device (Metal > CUDA > CPU) with warm-up
@@ -384,54 +395,71 @@ impl Whisper {
                 None
             };
 
-            // Processing loop state
-            // input_accum: source-rate (e.g., 48 kHz) accumulator used to feed rubato in fixed-size chunks
+            // Processing loop state.
+            // input_accum: source-rate (e.g., 48 kHz) accumulator used to feed rubato in fixed-size chunks.
+            // Rubato requires exact chunk sizes (1024 samples); accumulate until we have enough.
             let mut input_accum: Vec<f32> = Vec::new();
-            // buffer: 16 kHz domain accumulation used by inference
+            // buffer: 16 kHz domain accumulation used by inference (resampled audio).
+            // Grows during speaking segment; cleared on end_segment().
             let mut buffer: Vec<f32> = Vec::new();
-            // Preview cadence: emit every ~0.1s of new audio
+            // Preview cadence: emit every ~0.1s of new audio (1600 samples at 16 kHz).
+            // Partial stride: minimum new samples before emitting next preview.
             let partial_stride = 16_000 / 10; // 0.1s partials
             let mut last_partial_emit_at: usize = 0;
+            // Time gate: prevent partial spam (minimum 120ms between previews).
             let mut last_partial_time: Instant = Instant::now();
 
-            // Main loop: receive audio, resample, accumulate, infer
+            // Main loop: receive audio, resample, accumulate, infer.
             loop {
+                // Check shutdown signal (non-blocking; allows graceful exit).
                 if shutdown_rx.try_recv().is_ok() {
                     break;
                 }
+                // Check commands (non-blocking; allows end_segment() to interrupt audio processing).
                 if let Ok(cmd) = cmd_rx.try_recv() {
                     match cmd {
                         WhisperCmd::EndSegment => {
+                            // Clone buffer for final inference (worker continues, inference runs async).
                             let pcm = buffer.clone();
+                            // Send final request (blocking; ensures request is queued).
                             if let Err(e) = inf_tx_worker.send(InferReq::Final(pcm)) {
                                 error!(error = %e, "failed to send final inference request");
                             }
+                            // Clear buffer for next segment (start fresh after PTT release).
                             buffer.clear();
                             last_partial_emit_at = 0;
                             last_partial_time = Instant::now();
                         }
                     }
                 }
+                // Receive audio frame with timeout (allows periodic shutdown/cmd checks).
+                // Timeout: 1s (balance between responsiveness and CPU usage).
                 let frame = match rx.recv_timeout(Duration::from_secs(1)) {
                     Ok(f) => f,
+                    // Timeout: loop back to check shutdown/cmd (keeps loop responsive).
                     Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                    // Disconnected: audio thread stopped, exit worker.
                     Err(mpsc::RecvTimeoutError::Disconnected) => break,
                 };
 
                 if let Some(r) = resampler.as_mut() {
-                    // Accumulate source-rate samples, feed rubato with the next requested block size
+                    // Accumulate source-rate samples, feed rubato with the next requested block size.
+                    // Rubato needs exact chunk sizes (1024 samples at source rate); accumulate until enough.
                     input_accum.extend_from_slice(&frame);
                     loop {
+                        // Query rubato: how many input frames needed for next output chunk?
                         let need = r.input_frames_next();
+                        // If we don't have enough, break and wait for next frame.
                         if input_accum.len() < need {
                             break;
                         }
-                        // Take exactly the number of frames rubato expects this call
+                        // Take exactly the number of frames rubato expects this call.
+                        // drain(0..need) removes from front (FIFO order preserves audio continuity).
                         let chunk: Vec<f32> = input_accum.drain(0..need).collect();
                         match r.process(&[&chunk], None) {
                             Ok(out) => {
                                 let out0 = &out[0];
-                                // One-time confirmation log for sizes/ratio
+                                // One-time confirmation log for sizes/ratio (debugging resampling).
                                 static ONCE: std::sync::Once = std::sync::Once::new();
                                 ONCE.call_once(|| {
                                     tracing::info!(
@@ -440,57 +468,68 @@ impl Whisper {
                                         "rubato processed chunk"
                                     );
                                 });
+                                // Append resampled output to 16 kHz buffer (ready for inference).
                                 buffer.extend_from_slice(out0);
                             }
                             Err(e) => {
                                 error!(error = ?e, "rubato process failed; skipping chunk");
-                                // On failure, break to avoid tight error loop; keep remaining samples for next round
+                                // On failure, break to avoid tight error loop; keep remaining samples for next round.
+                                // Remaining samples in input_accum will be processed on next frame.
                                 break;
                             }
                         }
                     }
                 } else {
-                    // Already 16 kHz: append frame directly into 16 kHz buffer
+                    // Already 16 kHz: append frame directly into 16 kHz buffer (no resampling needed).
                     buffer.extend_from_slice(&frame);
                 }
 
+                // Check if enough new samples accumulated since last partial (sample-based gate).
+                // saturating_sub prevents underflow if buffer was cleared.
                 let enough_new_samples =
                     buffer.len().saturating_sub(last_partial_emit_at) >= partial_stride;
-                // Time gate: minimum spacing between previews
+                // Time gate: minimum spacing between previews (120ms prevents spam).
+                // Dual gate (samples + time) ensures reasonable preview cadence.
                 let enough_time = last_partial_time.elapsed() >= Duration::from_millis(120);
 
-                // Emit partial previews for live feedback while the user is still speaking
-                //
-                // Strategy: Every ~0.2s, transcribe just the last ~2s of audio and show a preview.
-                //
+                // Emit partial previews for live feedback while the user is still speaking.
+                // Strategy: Every ~0.2s, transcribe just the last ~1s of audio and show a preview.
                 // Why short windows: Faster inference = lower perceived latency. We don't need perfect
                 // accuracy for previews (they're just "last few words" hints).
-                //
                 // Why not the full buffer: Transcribing 10+ seconds every 0.2s would be too slow.
                 // Instead, we only look at recent context, then do a full transcription on PTT release.
                 if enough_new_samples && enough_time && !buffer.is_empty() {
-                    const PARTIAL_WINDOW_S: usize = 1; // Last 1 second of audio
+                    // Last 1 second of audio (enough context for preview, fast inference).
+                    const PARTIAL_WINDOW_S: usize = 1;
 
-                    // Grab the last N seconds (partial window)
+                    // Grab the last N seconds (partial window).
+                    // saturating_sub ensures we don't go negative if buffer < 1s.
                     let max_samples = crate::inference::WHISPER_SAMPLE_RATE * PARTIAL_WINDOW_S;
                     let start = buffer.len().saturating_sub(max_samples);
+                    // Clone slice for inference thread (worker continues, inference runs async).
                     let pcm = buffer[start..].to_vec();
 
-                    // Send to inference thread (non-blocking; skip if inference is busy)
+                    // Send to inference thread (non-blocking; skip if inference is busy).
+                    // try_send fails if inference is still processing previous request (size=1 channel).
+                    // Silently skip (preview is best-effort; don't block audio processing).
                     if let Err(_e) = inf_tx_worker.try_send(InferReq::Partial(pcm)) {}
+                    // Update tracking: mark this position as last emit point.
                     last_partial_emit_at = buffer.len();
                     last_partial_time = Instant::now();
                 }
             }
         });
 
-        // Spawn inference thread
+        // Spawn inference thread (dedicated thread for Candle ops; avoids blocking audio worker).
         let tx_evt_clone = tx_evt.clone();
         let infer_worker = std::thread::spawn(move || {
-            let mut model_components = model_components; // Make mutable for &mut inference calls
+            // Make mutable for &mut inference calls (model state may change during inference).
+            let mut model_components = model_components;
             loop {
+                // Blocking receive: inference thread waits for requests (serialized by size=1 channel).
                 match inf_rx.recv() {
                     Ok(InferReq::Partial(pcm)) => {
+                        // Run windowed inference (last 1s for preview; fast, low latency).
                         let text = match inference::run_inference_window(
                             &mut model_components,
                             &pcm,
@@ -499,19 +538,26 @@ impl Whisper {
                             Ok(t) => t,
                             Err(e) => {
                                 error!(error = %e, "inference error on partial");
+                                // Return empty string on error (preview is best-effort).
                                 String::new()
                             }
                         };
+                        // Send Partial event (best-effort; ignore send failure).
                         let _ = tx_evt_clone.send(TranscriptionEvent::Partial(text));
                     }
                     Ok(InferReq::Final(mut pcm)) => {
+                        // Add 120ms silence tail (catches trailing speech after PTT release).
+                        // Some users release PTT slightly before finishing words; tail captures this.
                         let tail = (0.12 * 16_000.0) as usize;
                         let new_len = pcm.len() + tail;
                         pcm.resize(new_len, 0.0f32);
+                        // Enforce minimum 3s length (Whisper works better with sufficient context).
+                        // Very short segments (< 3s) may produce lower quality transcriptions.
                         let min_final = 16_000 * 3;
                         if pcm.len() < min_final {
                             pcm.resize(min_final, 0.0f32);
                         }
+                        // Run full inference (all windows, complete transcription).
                         let text = match inference::run_inference_full(
                             &mut model_components,
                             &pcm,
@@ -520,11 +566,14 @@ impl Whisper {
                             Ok(t) => t,
                             Err(e) => {
                                 error!(error = %e, "inference error on end-segment final");
+                                // Return empty string on error (caller should handle gracefully).
                                 String::new()
                             }
                         };
+                        // Send Final event (best-effort; ignore send failure).
                         let _ = tx_evt_clone.send(TranscriptionEvent::Final(text));
                     }
+                    // Channel disconnected: exit inference thread (clean shutdown).
                     Err(_) => break,
                 }
             }
@@ -543,8 +592,11 @@ impl Whisper {
 
 impl RealtimeTranscriber for Whisper {
     fn push_audio(&mut self, pcm_f32: &[f32]) -> KeylessResult<()> {
+        // Non-blocking send: try_send fails if queue is full (backpressure).
+        // Clone frame (Vec<f32>) for worker thread (audio thread doesn't block).
         match self.tx.try_send(pcm_f32.to_vec()) {
             Ok(()) => Ok(()),
+            // Queue full: worker thread is overloaded; return error (caller should back off).
             Err(_) => Err(keyless_core::error::KeylessError::Whisper(
                 "transcriber queue full".to_string(),
             )),
@@ -552,12 +604,17 @@ impl RealtimeTranscriber for Whisper {
     }
 
     fn try_next_event(&mut self) -> Option<TranscriptionEvent> {
+        // Non-blocking receive: returns None if no events available.
+        // Should be called frequently (every audio frame) to drain events and prevent backpressure.
         self.rx_evt.try_recv().ok()
     }
 
     fn end_segment(&mut self) -> KeylessResult<()> {
+        // Blocking send: ensures command is queued (don't want to lose end_segment()).
+        // Unbounded channel won't block unless receiver is dropped (worker shutdown).
         match self.cmd_tx.send(WhisperCmd::EndSegment) {
             Ok(()) => Ok(()),
+            // Channel disconnected: worker thread already shut down.
             Err(e) => Err(KeylessError::Whisper(format!(
                 "failed to send EndSegment: {}",
                 e
@@ -568,17 +625,19 @@ impl RealtimeTranscriber for Whisper {
 
 impl Drop for Whisper {
     fn drop(&mut self) {
-        // Signal worker to shutdown
+        // Signal worker to shutdown (non-blocking; best-effort).
+        // Worker checks shutdown_rx in main loop and exits gracefully.
         if let Some(tx) = self.shutdown_tx.take() {
             let _ = tx.send(());
         }
-        // Drop inference sender to stop inference thread
-        // (thread exits when channel disconnects)
-        // Move out by replacing with a dummy channel if needed
-        // Wait for worker to exit cleanly
+        // Drop inference sender to stop inference thread (channel disconnect signals exit).
+        // inf_tx is cloned; dropping original causes inf_rx.recv() to return Err.
+        // Inference thread exits when it sees channel disconnect.
+        // Wait for worker to exit cleanly (join ensures no resource leaks).
         if let Some(h) = self.worker.take() {
             let _ = h.join();
         }
+        // Wait for inference worker to exit cleanly (ensures model cleanup).
         if let Some(h) = self.inf_worker.take() {
             let _ = h.join();
         }

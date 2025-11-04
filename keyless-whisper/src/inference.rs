@@ -51,27 +51,35 @@ fn run_inference(
     pcm: &[f32],
     device: &Device,
 ) -> KeylessResult<String> {
-    // Step 1: Convert PCM to mel spectrogram
+    // Step 1: Convert PCM to mel spectrogram (time-domain → frequency-domain representation).
+    // Mel spectrogram is flattened array: [mel_bin_0_t0, mel_bin_1_t0, ..., mel_bin_N_t0, mel_bin_0_t1, ...].
     let mel = preprocessing::pcm_to_mel(components.model.config(), pcm, &components.mel_filters);
 
-    // Step 2: Create mel tensor (batch_size=1, num_mel_bins, time_steps)
+    // Step 2: Create mel tensor (batch_size=1, num_mel_bins, time_steps).
+    // Calculate time_steps by dividing total mel values by mel bins (assumes mel is row-major).
     let mel_len = mel.len();
     let num_mel_bins = components.model.config().num_mel_bins;
+    // Integer division: truncates partial frames (defensive; assumes mel_len is multiple of num_mel_bins).
     let time_steps = mel_len / num_mel_bins;
 
+    // Reshape flattened mel array into 3D tensor (batch, frequency, time).
     let mel_tensor = Tensor::from_vec(mel, (1, num_mel_bins, time_steps), device)
         .map_err(|e| KeylessError::Whisper(format!("failed to create mel tensor: {}", e)))?;
 
-    // Step 3: Run encoder to get audio features (once, not twice!)
+    // Step 3: Run encoder to get audio features (once, not twice!).
+    // Encoder converts mel spectrogram to high-level audio embeddings (context for decoder).
+    // true = flush KV cache (start fresh for this segment; encoder has no KV cache but API requires bool).
     let audio_features = components
         .model
-        .encoder_forward(&mel_tensor, true) // true = flush KV cache
+        .encoder_forward(&mel_tensor, true)
         .map_err(|e| KeylessError::Whisper(format!("encoder forward failed: {}", e)))?;
 
-    // Step 4: Auto-detect language from features if not specified
-    // Note: .en models don't support language tokens, so skip auto-detection for them
+    // Step 4: Auto-detect language from features if not specified.
+    // .en models don't support language tokens (fixed to English), so skip auto-detection.
+    // If language_token is None and model is multilingual, run detection (uses decoder output).
     let language_token = if components.language_token.is_none() && !components.is_en_only {
         tracing::debug!("auto-detecting language");
+        // detect_language_from_features runs one decoder step to get language probabilities.
         Some(decode::detect_language_from_features(
             &mut components.model,
             &components.tokenizer,
@@ -80,10 +88,12 @@ fn run_inference(
             device,
         )?)
     } else {
+        // Use pre-specified language token (or None for .en models).
         components.language_token
     };
 
-    // Step 5: Decode with temperature fallback for robust transcription
+    // Step 5: Decode with temperature fallback for robust transcription.
+    // decode_with_fallback tries multiple temperatures (0.0 → 1.0) if quality metrics are poor.
     let result = decode::decode_with_fallback(
         &mut components.model,
         &components.tokenizer,
@@ -93,9 +103,11 @@ fn run_inference(
         device,
     )?;
 
-    // Step 6: Skip silent segments based on no-speech probability
-    // Note: Use higher threshold (0.65) for .en models as they seem to have slightly different calibration
+    // Step 6: Skip silent segments based on no-speech probability.
+    // Use higher threshold (0.65) for .en models as they have slightly different calibration.
+    // .en models may output higher no_speech_prob for silence, so threshold adjusted empirically.
     let no_speech_threshold = if components.is_en_only { 0.65 } else { 0.6 };
+    // Early return: empty string for silent audio (prevents hallucinated text).
     if result.no_speech_prob > no_speech_threshold {
         tracing::debug!(
             no_speech_prob = result.no_speech_prob,
@@ -128,7 +140,10 @@ pub fn run_inference_window(
     pcm_16k: &[f32],
     device: &Device,
 ) -> KeylessResult<String> {
+    // Truncate to window size (480k samples = 30s at 16 kHz).
+    // min() prevents out-of-bounds if input is shorter than window.
     let end = pcm_16k.len().min(WHISPER_WINDOW_SAMPLES);
+    // Slice to end (exclusive; safe because end <= pcm_16k.len()).
     run_inference(components, &pcm_16k[..end], device)
 }
 
@@ -144,6 +159,7 @@ pub fn run_inference_full(
     pcm_16k: &[f32],
     device: &Device,
 ) -> KeylessResult<String> {
+    // Early return for empty input (avoids unnecessary allocation).
     if pcm_16k.is_empty() {
         return Ok(String::new());
     }
@@ -151,9 +167,13 @@ pub fn run_inference_full(
     let mut out = String::new();
     let mut start = 0usize;
     let total = pcm_16k.len();
+    // Slide window over audio (30s chunks, overlapping if needed).
     while start < total {
+        // Calculate window end (exclusive): clamp to total to avoid OOB.
+        // Last window may be shorter than 30s (handled gracefully).
         let end = (start + WHISPER_WINDOW_SAMPLES).min(total);
         let window = &pcm_16k[start..end];
+        // Measure inference time per window (for performance debugging).
         let t0 = std::time::Instant::now();
         let text = run_inference(components, window, device)?;
         let dt = t0.elapsed().as_millis();
@@ -164,15 +184,21 @@ pub fn run_inference_full(
             duration_ms = dt,
             "window inference completed"
         );
+        // Only append non-empty text (trimmed to remove leading/trailing whitespace).
+        // Skip silent segments (they return empty string from run_inference).
         if !text.trim().is_empty() {
+            // Add space separator between windows (except for first window).
             if !out.is_empty() {
                 out.push(' ');
             }
+            // Append trimmed text (removes window boundary artifacts).
             out.push_str(text.trim());
         }
+        // Early break if we've processed all samples (avoids unnecessary iteration).
         if end == total {
             break;
         }
+        // Advance to next window (no overlap; consecutive windows).
         start = end;
     }
     Ok(out)
