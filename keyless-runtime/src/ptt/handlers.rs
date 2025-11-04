@@ -11,7 +11,7 @@ use tracing::{debug, error, info};
 /// Handle PTT release: finalize segment and drain/deliver Final events.
 pub fn handle_ptt_released<T: RealtimeTranscriber>(
     transcriber: &Arc<Mutex<T>>,
-    sink: &Arc<Box<dyn OutputSink>>,
+    sink: &Arc<dyn OutputSink>,
     tx_log: &mpsc::SyncSender<String>,
     tx_preview: &mpsc::SyncSender<String>,
     sfx: &Arc<SfxPlayer>,

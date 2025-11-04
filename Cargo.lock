@@ -1937,7 +1937,7 @@ dependencies = [
 
 [[package]]
 name = "keyless"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "candle-transformers",
  "clap",
@@ -1959,7 +1959,7 @@ dependencies = [
 
 [[package]]
 name = "keyless-audio"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cpal",
  "keyless-core",
@@ -1969,7 +1969,7 @@ dependencies = [
 
 [[package]]
 name = "keyless-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dirs-next",
  "serde",
@@ -1980,7 +1980,7 @@ dependencies = [
 
 [[package]]
 name = "keyless-logging"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dirs-next",
  "tracing",
@@ -1989,7 +1989,7 @@ dependencies = [
 
 [[package]]
 name = "keyless-models"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "dirs-next",
  "keyless-core",
@@ -2003,7 +2003,7 @@ dependencies = [
 
 [[package]]
 name = "keyless-output"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arboard",
  "enigo",
@@ -2014,7 +2014,7 @@ dependencies = [
 
 [[package]]
 name = "keyless-runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "keyless-audio",
  "keyless-core",
@@ -2029,7 +2029,7 @@ dependencies = [
 
 [[package]]
 name = "keyless-whisper"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "candle-core",
  "candle-nn",

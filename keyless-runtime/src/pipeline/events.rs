@@ -11,7 +11,7 @@ use tracing::{error, info};
 /// Process transcription events: deliver Final events, show Partial as preview.
 pub fn process_transcription_events<T: RealtimeTranscriber>(
     transcriber: &Arc<Mutex<T>>,
-    sink: &Arc<Box<dyn OutputSink>>,
+    sink: &Arc<dyn OutputSink>,
     tx_log: &mpsc::SyncSender<String>,
     tx_preview: &mpsc::SyncSender<String>,
     sfx: &Arc<SfxPlayer>,

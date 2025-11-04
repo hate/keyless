@@ -51,3 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [0.1.0]: https://github.com/hate/keyless/releases/tag/v0.1.0
 
+## [0.2.0] - 2025-11-04
+
+### Breaking
+- keyless-runtime: `create_audio_callback` now takes `AudioCallbackParams` instead of many args.
+- keyless-runtime: sink type simplified to `Arc<dyn OutputSink>`.
+
+[0.2.0]: https://github.com/hate/keyless/releases/tag/v0.2.0
+

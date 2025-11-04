@@ -13,21 +13,52 @@ use super::events::process_transcription_events;
 use crate::ptt::handlers::{handle_ptt_pressed, handle_ptt_released};
 use crate::workers;
 
+/// Type alias for the audio callback closure.
+pub type AudioCallback = Box<dyn FnMut(&[f32]) + Send>;
+
+/// Grouped transmit channels for the audio callback.
+pub struct CallbackTx {
+    /// RMS audio level → TUI gauge (0..100).
+    pub tx_level: mpsc::SyncSender<u16>,
+    /// Log lines → TUI status panel.
+    pub tx_log: mpsc::SyncSender<String>,
+    /// Spectrum bars (EQ) → TUI visualizer.
+    pub tx_spec: mpsc::SyncSender<Vec<u16>>,
+    /// Live preview text → TUI preview area.
+    pub tx_preview: mpsc::SyncSender<String>,
+    /// VAD open/closed → TUI indicator.
+    pub tx_vad: mpsc::SyncSender<bool>,
+}
+
+/// Parameters required to construct the audio callback.
+pub struct AudioCallbackParams {
+    /// EQ configuration for spectrum computation.
+    pub eq_cfg: EqConfig,
+    /// Voice Activity Detection thresholds.
+    pub vad: VadThresholds,
+    /// Whisper worker/transcriber handle.
+    pub transcriber: workers::whisper::WhisperHandle,
+    /// Output destination for final transcriptions.
+    pub sink: Arc<dyn OutputSink>,
+    /// Sound effects player for PTT/VAD cues.
+    pub sfx: Arc<SfxPlayer>,
+    /// Shared PTT hold flag (hotkey state).
+    pub hold_flag: Arc<AtomicBool>,
+    /// Grouped outbound channels to the TUI.
+    pub tx: CallbackTx,
+}
+
 /// Create the audio frame callback with PTT state machine.
-#[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn create_audio_callback(
-    eq_cfg: EqConfig,
-    vad_config: &VadThresholds,
-    transcriber: workers::whisper::WhisperHandle,
-    sink: Arc<Box<dyn OutputSink>>,
-    sfx: Arc<SfxPlayer>,
-    hold_flag: Arc<AtomicBool>,
-    tx_level: mpsc::SyncSender<u16>,
-    tx_log: mpsc::SyncSender<String>,
-    tx_spec: mpsc::SyncSender<Vec<u16>>,
-    tx_preview: mpsc::SyncSender<String>,
-    tx_vad: mpsc::SyncSender<bool>,
-) -> Box<dyn FnMut(&[f32]) + Send> {
+pub fn create_audio_callback(params: AudioCallbackParams) -> AudioCallback {
+    let AudioCallbackParams {
+        eq_cfg,
+        vad,
+        transcriber,
+        sink,
+        sfx,
+        hold_flag,
+        tx,
+    } = params;
     // Clone inner transcriber handle (needed for closure capture; Arc is cheap).
     let trans_clone = transcriber.inner_clone();
 
@@ -37,10 +68,10 @@ pub fn create_audio_callback(
     let mut held_prev = false;
     // VAD gate: hysteresis-based voice activity detection (prevents flickering).
     let mut vad = VadGate::new(
-        vad_config.start_db,
-        vad_config.stop_db,
-        vad_config.min_duration_ms,
-        vad_config.max_silence_ms,
+        vad.start_db,
+        vad.stop_db,
+        vad.min_duration_ms,
+        vad.max_silence_ms,
         100.0, // Sample rate in Hz (used for timing calculations).
     );
 
@@ -53,7 +84,7 @@ pub fn create_audio_callback(
         // RMS = sqrt(sum(samples²) / count); normalized to [0, 100] for gauge display.
         let rms = (frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32).sqrt();
         let level = (rms * 100.0).clamp(0.0, 100.0) as u16;
-        let _ = tx_level.try_send(level);
+        let _ = tx.tx_level.try_send(level);
         // Convert to dB for VAD (20 * log10(rms)); max(1e-8) prevents log(0) = -inf.
         let level_db = 20.0 * (rms.max(1e-8)).log10();
 
@@ -73,17 +104,17 @@ pub fn create_audio_callback(
             // Hotkey is released (PTT not held).
             if held_prev {
                 // JUST released (transition): finalize the segment (flush transcriber, emit Final).
-                handle_ptt_released(&trans_clone, &sink, &tx_log, &tx_preview, &sfx);
+                handle_ptt_released(&trans_clone, &sink, &tx.tx_log, &tx.tx_preview, &sfx);
                 sfx.play_release();
                 held_prev = false;
             }
             // CRITICAL: Always drain events even when not held, to catch asynchronous Final events
             // from the inference thread (they arrive later, after hotkey is released).
-            process_transcription_events(&trans_clone, &sink, &tx_log, &tx_preview, &sfx);
+            process_transcription_events(&trans_clone, &sink, &tx.tx_log, &tx.tx_preview, &sfx);
 
             // Show flat/empty visualizer when idle (only send if state changed to avoid spam).
             if !last_spec_was_zero {
-                let _ = tx_spec.try_send(zero_spectrum.clone());
+                let _ = tx.tx_spec.try_send(zero_spectrum.clone());
                 last_spec_was_zero = true;
             }
             return;
@@ -92,7 +123,7 @@ pub fn create_audio_callback(
         // Hotkey is held (PTT active).
         if !held_prev {
             // JUST pressed (transition): start a new dictation session.
-            handle_ptt_pressed(&tx_log, &tx_preview);
+            handle_ptt_pressed(&tx.tx_log, &tx.tx_preview);
             sfx.play_press();
             // Reset VAD timers (don't carry over from previous session; fresh start).
             vad.reset();
@@ -119,19 +150,19 @@ pub fn create_audio_callback(
                 level_db = %level_db,
                 "VAD gate state changed"
             );
-            let _ = tx_log.try_send(format!(
+            let _ = tx.tx_log.try_send(format!(
                 "VAD {} at {:.1} dB",
                 if gate_open { "OPEN" } else { "CLOSED" },
                 level_db
             ));
-            let _ = tx_vad.try_send(gate_open);
+            let _ = tx.tx_vad.try_send(gate_open);
         }
 
         // Update EQ visualizer and transcription based on VAD state.
         if open_now {
             // Compute bars only when VAD is open (reduces CPU when gate is closed; skip FFT).
             let out = compute_bars(frame, &eq_cfg, &mut eq_state);
-            let _ = tx_spec.try_send(out);
+            let _ = tx.tx_spec.try_send(out);
             last_spec_was_zero = false;
 
             // Push audio to transcriber (non-blocking lock; ignore if poisoned).
@@ -140,14 +171,14 @@ pub fn create_audio_callback(
                 && let Err(e) = t.push_audio(frame)
             {
                 error!(error = %e, "failed to push audio to transcriber (backpressure)");
-                let _ = tx_log.try_send(format!("push_audio error: {}", e));
+                let _ = tx.tx_log.try_send(format!("push_audio error: {}", e));
             }
             // Drain Partial events (show live preview while speaking).
-            process_transcription_events(&trans_clone, &sink, &tx_log, &tx_preview, &sfx);
+            process_transcription_events(&trans_clone, &sink, &tx.tx_log, &tx.tx_preview, &sfx);
         } else {
             // Gate closed: show empty spectrum only if it changed (skip compute to save CPU).
             if !last_spec_was_zero {
-                let _ = tx_spec.try_send(zero_spectrum.clone());
+                let _ = tx.tx_spec.try_send(zero_spectrum.clone());
                 last_spec_was_zero = true;
             }
         }

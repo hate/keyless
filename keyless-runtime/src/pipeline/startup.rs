@@ -209,7 +209,7 @@ pub fn finalize_pipeline_from_artifacts(
     };
     let provider = keyless_output::DefaultOutputProvider;
     // Provider creates sink based on output_mode (runtime polymorphism).
-    let sink: Box<dyn keyless_core::output::OutputSink> = provider.provide(config)?;
+    let sink_box: Box<dyn keyless_core::output::OutputSink> = provider.provide(config)?;
 
     // Extract mic name: prefer config, fallback to system default, fallback to placeholder.
     let mic_name = config
@@ -221,19 +221,24 @@ pub fn finalize_pipeline_from_artifacts(
     // Build callback using provided transcriber and eq cfg
     let transcriber = artifacts.transcriber.clone();
     let sfx = Arc::new(keyless_audio::SfxPlayer::new());
-    let callback = callback::create_audio_callback(
-        artifacts.eq_cfg,
-        &vad_config,
-        transcriber.clone(),
-        Arc::new(sink),
-        Arc::clone(&sfx),
-        hold_flag,
-        tx_level.clone(),
-        tx_log.clone(),
+    let sink: Arc<dyn keyless_core::output::OutputSink> = sink_box.into();
+    let tx = callback::CallbackTx {
+        tx_level: tx_level.clone(),
+        tx_log: tx_log.clone(),
         tx_spec,
         tx_preview,
         tx_vad,
-    );
+    };
+    let params = callback::AudioCallbackParams {
+        eq_cfg: artifacts.eq_cfg,
+        vad: vad_config,
+        transcriber: transcriber.clone(),
+        sink: Arc::clone(&sink),
+        sfx: Arc::clone(&sfx),
+        hold_flag,
+        tx,
+    };
+    let callback = callback::create_audio_callback(params);
 
     // Start audio input stream (non-Send component; must be created on main thread).
     let dev_name_for_log = selected_device
