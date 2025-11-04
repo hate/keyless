@@ -31,8 +31,10 @@ impl ClipboardSink {
     /// # Errors
     /// Returns `KeylessError::Output` if clipboard access fails.
     pub fn new() -> KeylessResult<Self> {
+        // Initialize clipboard; may fail in headless environments or without permissions.
         match Clipboard::new() {
             Ok(cb) => Ok(Self {
+                // Wrap in Mutex for thread safety (Clipboard isn't Send/Sync).
                 clipboard: Mutex::new(cb),
             }),
             Err(e) => Err(keyless_core::error::KeylessError::Output(format!(
@@ -45,21 +47,27 @@ impl ClipboardSink {
 
 impl OutputSink for ClipboardSink {
     fn send_text(&self, text: &str) -> KeylessResult<()> {
+        // Lock mutex to access clipboard (guards against concurrent access).
         match self.clipboard.lock() {
-            Ok(mut cb) => match cb.set_text(text.to_string()) {
-                Ok(()) => {
-                    info!(len = text.len(), "copied text to clipboard");
-                    Ok(())
+            Ok(mut cb) => {
+                // to_string() clones text (set_text requires owned String).
+                match cb.set_text(text.to_string()) {
+                    Ok(()) => {
+                        info!(len = text.len(), "copied text to clipboard");
+                        Ok(())
+                    }
+                    Err(e) => {
+                        // Clipboard operation failed (may be permission or system issue).
+                        error!(error = %e, "clipboard set_text failed");
+                        Err(keyless_core::error::KeylessError::Output(format!(
+                            "clipboard set_text failed: {}",
+                            e
+                        )))
+                    }
                 }
-                Err(e) => {
-                    error!(error = %e, "clipboard set_text failed");
-                    Err(keyless_core::error::KeylessError::Output(format!(
-                        "clipboard set_text failed: {}",
-                        e
-                    )))
-                }
-            },
+            }
             Err(_) => {
+                // Mutex poisoned (previous panic left lock in bad state).
                 error!("clipboard mutex poisoned");
                 Err(keyless_core::error::KeylessError::Output(
                     "clipboard mutex poisoned".to_string(),

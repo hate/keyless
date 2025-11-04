@@ -27,11 +27,12 @@ pub struct FileSink {
 
 impl OutputSink for FileSink {
     fn send_text(&self, text: &str) -> KeylessResult<()> {
-        // Avoid work if there's nothing to write
+        // Avoid work if there's nothing to write (early return optimization).
         if text.is_empty() {
             return Ok(());
         }
-        // Open in append mode, creating the file if it doesn't exist
+        // Open in append mode, creating the file if it doesn't exist.
+        // Parent directory must exist (validated during Config::validate()).
         let mut file = match OpenOptions::new()
             .create(true)
             .append(true)
@@ -48,7 +49,7 @@ impl OutputSink for FileSink {
             }
         };
 
-        // Write the text followed by a newline without allocating an intermediate String
+        // Write text as bytes (no String allocation; direct UTF-8 write).
         if let Err(e) = file.write_all(text.as_bytes()) {
             error!(path = %self.path.display(), error = %e, "failed to write to file");
             return Err(keyless_core::error::KeylessError::Output(format!(
@@ -57,9 +58,10 @@ impl OutputSink for FileSink {
                 e
             )));
         }
+        // Write newline separately (one line per transcription).
         match file.write_all(b"\n") {
             Ok(()) => {
-                // bytes: text length + 1 for newline
+                // bytes: text length + 1 for newline (for logging).
                 info!(path = %self.path.display(), bytes = text.len() + 1, "appended transcription to file");
                 Ok(())
             }

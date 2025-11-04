@@ -54,7 +54,8 @@ impl PasteSink {
     /// # Errors
     /// Returns `KeylessError::Output` if enigo initialization fails.
     pub fn new() -> KeylessResult<Self> {
-        // Validate that we can create an Enigo instance
+        // Validate that we can create an Enigo instance (fail fast if permissions missing).
+        // We don't store the instance; create on-demand in send_text() for thread safety.
         match Enigo::new(&EnigoSettings::default()) {
             Ok(_) => Ok(Self),
             Err(e) => Err(keyless_core::error::KeylessError::Output(format!(
@@ -67,19 +68,22 @@ impl PasteSink {
 
 impl OutputSink for PasteSink {
     fn send_text(&self, text: &str) -> KeylessResult<()> {
-        // No-op for empty strings (avoids delay and enigo setup)
+        // No-op for empty strings (avoids delay and enigo setup overhead).
         if text.is_empty() {
             return Ok(());
         }
         // Brief delay to ensure the active window is ready to receive input.
-        // This prevents text from being lost if the window isn't fully focused yet.
+        // Prevents text loss if window isn't fully focused yet (race condition mitigation).
         thread::sleep(Duration::from_millis(50));
 
-        // Create a new Enigo instance for this paste operation.
-        // This works around Send/Sync limitations on platforms like macOS.
+        // Create a new Enigo instance for this paste operation (per-call creation).
+        // Workaround for Send/Sync limitations: Enigo contains raw pointers on macOS,
+        // so it can't be stored in Mutex for thread-safe access. Creating per-call
+        // is cheap (<1ms) and only happens ~every 2s (on Final events).
         let mut enigo = match Enigo::new(&EnigoSettings::default()) {
             Ok(e) => e,
             Err(e) => {
+                // Enigo creation failed (may be permission issue or system error).
                 error!(error = %e, "failed to create keystroke simulator");
                 return Err(keyless_core::error::KeylessError::Output(format!(
                     "failed to create keystroke simulator: {}",
@@ -88,14 +92,17 @@ impl OutputSink for PasteSink {
             }
         };
 
-        // Type the text character-by-character using enigo's text() method.
-        // This handles special characters, Unicode, and platform differences automatically.
+        // Type text character-by-character using enigo's text() method.
+        // Handles special characters, Unicode, and platform differences automatically.
+        // This is the bottleneck (keystroke simulation), not Enigo creation.
         match enigo.text(text) {
             Ok(()) => {
+                // chars().count() gives Unicode-aware character count (not bytes).
                 info!(chars = text.chars().count(), "pasted text via keystrokes");
                 Ok(())
             }
             Err(e) => {
+                // Keystroke simulation failed (may be permission or system issue).
                 error!(error = %e, "keystroke simulation failed");
                 Err(keyless_core::error::KeylessError::Output(format!(
                     "keystroke simulation failed: {}",
