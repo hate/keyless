@@ -80,18 +80,19 @@ pub fn build_startup_artifacts(
     eq_tuning: &EqTuning,
     mut progress: Option<&mut dyn FnMut(StartupEvent)>,
 ) -> keyless_core::error::KeylessResult<StartupArtifacts> {
-    // Device preload (Metal/CUDA/CPU) happens inside keyless-whisper::Whisper::new
+    // Device preload (Metal/CUDA/CPU) happens inside keyless-whisper::Whisper::new.
 
-    // Initialize Whisper transcriber (the heavy part: model loading, tokenizer, mel filters)
-    //
+    // Initialize Whisper transcriber (the heavy part: model loading, tokenizer, mel filters).
     // This is Send-safe because WhisperHandle wraps Arc<Mutex<Whisper>>, which can cross threads.
     let whisper_cfg = keyless_whisper::WhisperConfig {
         model_path: config.model_path.clone(),
         language: config.language.clone(),
+        // 48 kHz matches audio input sample rate (required for correct transcription).
         source_sample_hz: 48_000,
     };
 
-    // Bridge progress events from Whisper loading to our startup events
+    // Bridge progress events from Whisper loading to our startup events (for UI overlay).
+    // Map WhisperLoadPhase → StartupEvent so TUI can show granular progress.
     let bridge = progress.as_mut().map(|cb| {
         move |ph: WhisperLoadPhase, st: PhaseState| {
             let label = ph.as_label();
@@ -104,7 +105,7 @@ pub fn build_startup_artifacts(
 
     let transcriber = workers::whisper::start_whisper_with_progress(whisper_cfg, bridge)?;
 
-    // EQ config
+    // EQ config: matches audio input sample rate (48 kHz) for correct frequency analysis.
     let eq_cfg = keyless_audio::EqConfig {
         sample_rate_hz: 48_000.0,
         nfft: 1024,
@@ -129,13 +130,17 @@ pub fn spawn_startup_worker(
     eq_tuning: EqTuning,
     tx_log: mpsc::SyncSender<String>,
 ) -> mpsc::Receiver<StartupEvent> {
+    // Sync channel with buffer (32 events) to handle progress bursts without blocking.
     let (tx_evt, rx_evt) = mpsc::sync_channel::<StartupEvent>(32);
     std::thread::spawn(move || {
+        // Emit device phase (device preload is quick, just a signal to UI).
         let _ = tx_evt.send(StartupEvent::PhaseStarted("device"));
         let _ = tx_log.try_send("device preloaded".to_string());
         let _ = tx_evt.send(StartupEvent::PhaseOk("device"));
 
+        // Emit whisper phase start (this is the heavy part).
         let _ = tx_evt.send(StartupEvent::PhaseStarted("whisper"));
+        // Forward progress events from build_startup_artifacts to UI channel.
         let mut forward = |evt: StartupEvent| {
             let _ = tx_evt.send(evt);
         };
@@ -143,9 +148,11 @@ pub fn spawn_startup_worker(
             Ok(art) => {
                 let _ = tx_log.try_send("whisper initialized".to_string());
                 let _ = tx_evt.send(StartupEvent::PhaseOk("whisper"));
+                // Send artifacts to main thread for finalization (main thread creates non-Send components).
                 let _ = tx_evt.send(StartupEvent::Ready(art));
             }
             Err(e) => {
+                // Emit error event (UI will show error overlay and allow retry).
                 let _ = tx_evt.send(StartupEvent::PhaseErr("whisper", e.to_string()));
             }
         }
@@ -194,16 +201,17 @@ pub fn finalize_pipeline_from_artifacts(
         tx_vad,
     } = channels;
 
-    // Sink
+    // Create output sink (paste/clipboard/file) based on config.
     let sink_label = match &config.output_mode {
         OutputMode::Paste => "Paste".into(),
         OutputMode::Clipboard => "Clipboard".into(),
         OutputMode::File(p) => format!("File ({})", p.display()),
     };
     let provider = keyless_output::DefaultOutputProvider;
+    // Provider creates sink based on output_mode (runtime polymorphism).
     let sink: Box<dyn keyless_core::output::OutputSink> = provider.provide(config)?;
 
-    // Mic name
+    // Extract mic name: prefer config, fallback to system default, fallback to placeholder.
     let mic_name = config
         .device_name
         .clone()
@@ -227,7 +235,7 @@ pub fn finalize_pipeline_from_artifacts(
         tx_vad,
     );
 
-    // Start audio input
+    // Start audio input stream (non-Send component; must be created on main thread).
     let dev_name_for_log = selected_device
         .as_ref()
         .and_then(|d| d.name().ok())
@@ -235,13 +243,16 @@ pub fn finalize_pipeline_from_artifacts(
     let audio_handle = match crate::workers::audio::start_audio(
         selected_device,
         AudioConfig {
-            sample_hz: 0,     // auto: device default (capped/preferred in backend)
-            frame_samples: 0, // auto: ~100ms at chosen sample rate
+            // Auto-select sample rate (backend prefers 48 kHz if available).
+            sample_hz: 0,
+            // Auto-calculate frame size (~100ms at chosen sample rate for low latency).
+            frame_samples: 0,
         },
         callback,
     ) {
         Ok(h) => h,
         Err(e) => {
+            // Audio start failed (permission issue or device unavailable).
             error!(error = %e, device = %dev_name_for_log, "audio capture start failed");
             let _ = tx_log.try_send(format!("audio start error: {}", e));
             return Err(e);

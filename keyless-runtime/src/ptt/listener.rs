@@ -41,34 +41,39 @@ impl PttBackend for RealBackend {
         std::thread::spawn(move || {
             use rdev::{Event, EventType, Key, listen};
 
-            // Track modifier key states (updated on every key press/release)
+            // Track modifier key states (updated on every key press/release).
+            // Must track all three independently to support both preset combos.
             let mut ctrl = false;
             let mut alt = false;
             let mut shift = false;
-            let mut last_state = false; // Previous hotkey combo state (for edge detection)
+            // Previous hotkey combo state (for edge detection; only emit on state change).
+            let mut last_state = false;
 
             let handler = move |event: Event| {
-                // Respect stop and enabled flags (let the app disable PTT dynamically)
+                // Respect stop and enabled flags (let the app disable PTT dynamically).
+                // Relaxed ordering is sufficient (no other synchronization needed).
                 if stop_flag.load(Ordering::Relaxed) || !enabled_flag.load(Ordering::Relaxed) {
                     return;
                 }
-                let _ = tx_evt.try_send(()); // Heartbeat: any key event = listener is alive
+                // Heartbeat: any key event = listener is alive (used for UI stale detection).
+                let _ = tx_evt.try_send(());
 
-                // Update modifier key states based on press/release
-                //
-                // Why track all three: We support two presets:
-                // - Preset 0 (mode=0): Control + Option/Alt
+                // Update modifier key states based on press/release.
+                // We support two presets:
+                // - Preset 0 (mode=0): Control + Option/Alt (MetaLeft/Right on macOS)
                 // - Preset 1 (mode=1): Control + Shift
-                //
                 // We must track Ctrl, Alt, and Shift independently to detect both combos.
                 match event.event_type {
                     EventType::KeyPress(k) => match k {
+                        // Track both left and right variants (user may press either).
                         Key::ControlLeft | Key::ControlRight => ctrl = true,
+                        // Alt/Option keys: AltGr is right Alt, Meta is Option on macOS.
                         Key::Alt | Key::AltGr | Key::MetaLeft | Key::MetaRight => alt = true,
                         Key::ShiftLeft | Key::ShiftRight => shift = true,
                         _ => {}
                     },
                     EventType::KeyRelease(k) => match k {
+                        // Reset state on release (combo only active while all modifiers held).
                         Key::ControlLeft | Key::ControlRight => ctrl = false,
                         Key::Alt | Key::AltGr | Key::MetaLeft | Key::MetaRight => alt = false,
                         Key::ShiftLeft | Key::ShiftRight => shift = false,
@@ -77,16 +82,14 @@ impl PttBackend for RealBackend {
                     _ => {}
                 }
 
-                // Check if the current preset's hotkey combo is active
-                //
-                // How this works:
-                // - Read the preset_mode atomic (0 or 1) to know which combo the user wants
-                // - Check if the required modifiers are held
-                // - If the combo state changed (pressed or released), notify the pipeline
+                // Check if the current preset's hotkey combo is active.
+                // Read preset_mode atomic (0 or 1) to determine which combo the user wants.
+                // Relaxed ordering is sufficient (no other synchronization needed).
                 let mode = preset_mode.load(Ordering::Relaxed);
                 let need_shift = mode == 1; // Preset 1: Ctrl+Shift
                 let need_alt = mode == 0; // Preset 0: Ctrl+Alt/Option
 
+                // Determine if combo is held based on current preset and modifier states.
                 let held = if need_shift {
                     ctrl && shift
                 } else if need_alt {
@@ -95,10 +98,12 @@ impl PttBackend for RealBackend {
                     false
                 };
 
-                // Edge detection: only send when state changes (avoid flooding the channel)
+                // Edge detection: only send when state changes (avoid flooding the channel).
+                // Pipeline only needs to know when combo transitions (pressed → released or vice versa).
                 if held != last_state {
                     last_state = held;
-                    let _ = tx_hold.try_send(held); // true = pressed, false = released
+                    // true = pressed (combo active), false = released (combo inactive).
+                    let _ = tx_hold.try_send(held);
                 }
             };
             let _ = listen(handler);
@@ -114,7 +119,7 @@ pub fn spawn_listener(
     tx_hold: SyncSender<bool>,
     tx_evt: SyncSender<()>,
 ) -> KeylessResult<std::thread::JoinHandle<()>> {
-    // use real backend by default
+    // Use real backend by default (rdev-based implementation for production).
     Ok(spawn_with_backend(
         RealBackend,
         preset_mode,

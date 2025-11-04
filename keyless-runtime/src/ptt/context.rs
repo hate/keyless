@@ -29,6 +29,7 @@ impl PttContext {
         enabled: Arc<AtomicBool>,
         handle: std::thread::JoinHandle<()>,
     ) -> Self {
+        // Initialize with None timestamp (will be set on first key event for heartbeat tracking).
         Self {
             hold_flag,
             preset_mode,

@@ -19,7 +19,8 @@ pub fn handle_ptt_released<T: RealtimeTranscriber>(
     debug!("PTT released, ending segment");
     let _ = tx_log.try_send("PTT released: gating audio".to_string());
 
-    // Signal end of segment to the transcriber
+    // Signal end of segment to transcriber (triggers finalization, emits Final event).
+    // Non-blocking lock; ignore if poisoned (best-effort finalization).
     if let Ok(mut t) = transcriber.lock()
         && let Err(e) = t.end_segment()
     {
@@ -27,17 +28,20 @@ pub fn handle_ptt_released<T: RealtimeTranscriber>(
         let _ = tx_log.try_send(format!("end_segment error: {}", e));
     }
 
-    // Clear preview text
+    // Clear preview text (PTT released = session ended, no more preview needed).
     let _ = tx_preview.try_send(String::new());
 
-    // Drain and deliver any pending Final events
+    // Drain and deliver any pending Final events (non-blocking; may arrive asynchronously).
+    // Final events are emitted by inference thread after end_segment(), so drain here.
     if let Ok(mut t) = transcriber.lock() {
         while let Some(evt) = t.try_next_event() {
             if let TranscriptionEvent::Final(text) = evt {
+                // Send to output sink (paste/clipboard/file); play sound on success.
                 if let Err(e) = sink.send_text(&text) {
                     error!(error = %e, "output sink failed");
                     let _ = tx_log.try_send(format!("sink error: {}", e));
                 } else {
+                    // Play beep on successful delivery (user feedback).
                     sfx.play_final();
                 }
                 info!(text = %text, "final transcription delivered");
@@ -55,6 +59,6 @@ pub fn handle_ptt_pressed(
     debug!("PTT pressed, listening with VAD gating");
     let _ = tx_log.try_send("PTT held: listening (VAD gated)".to_string());
 
-    // Clear preview text for new session
+    // Clear preview text for new session (fresh start, no leftover text from previous session).
     let _ = tx_preview.try_send(String::new());
 }

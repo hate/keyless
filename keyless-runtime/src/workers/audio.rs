@@ -13,6 +13,8 @@ pub struct AudioHandle {
 impl AudioHandle {
     /// Stop audio capture and release resources.
     pub fn stop(mut self) -> KeylessResult<()> {
+        // Consume self to ensure handle is dropped after stop (prevents double-stop).
+        // Map CPAL error to KeylessError::Audio for consistent error handling.
         self.inner
             .stop()
             .map_err(|e| KeylessError::Audio(e.to_string()))
@@ -29,8 +31,11 @@ pub fn start_audio(
     callback: FrameCallback,
 ) -> KeylessResult<AudioHandle> {
     let mut audio = CpalAudioInput::new();
+    // Start capture stream (callback invoked from audio thread; non-blocking).
+    // Map CPAL error to KeylessError::Audio for consistent error handling.
     audio
         .start(selected_device, cfg, callback)
         .map_err(|e| KeylessError::Audio(e.to_string()))?;
+    // Return handle for graceful shutdown (stop() consumes handle).
     Ok(AudioHandle { inner: audio })
 }

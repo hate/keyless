@@ -15,14 +15,22 @@ pub struct Channels {
 impl Channels {
     /// Create the full channel set with paired receivers.
     pub fn new() -> (Self, ChannelReceivers) {
+        // Audio channels: 64 buffer (high frequency, ~100Hz updates; drop oldest if full).
         let (tx_level, rx_level) = mpsc::sync_channel::<u16>(64);
+        // Spectrum bars: 64 buffer (updated per audio frame; Vec<u16> allocation per message).
         let (tx_spec, rx_spec) = mpsc::sync_channel::<Vec<u16>>(64);
+        // Logs: 256 buffer (bursty traffic; want larger buffer to avoid drops during startup).
         let (tx_log, rx_log) = mpsc::sync_channel::<String>(256);
+        // Preview: 64 buffer (updated on Partial events; last value overwrites, small buffer OK).
         let (tx_preview, rx_preview) = mpsc::sync_channel::<String>(64);
+        // VAD state: 16 buffer (state changes infrequent; small buffer sufficient).
         let (tx_vad, rx_vad) = mpsc::sync_channel::<bool>(16);
+        // Hold state: 8 buffer (edge-detected; only sends on state change, minimal buffering).
         let (tx_hold, rx_hold) = mpsc::sync_channel::<bool>(8);
+        // PTT heartbeat: 8 buffer (heartbeat events; latest is sufficient, small buffer OK).
         let (tx_ptt_evt, rx_ptt_evt) = mpsc::sync_channel::<()>(8);
 
+        // Group senders semantically (audio, UI, control) for clear ownership separation.
         let senders = Self {
             audio: AudioChannels { tx_level, tx_spec },
             ui: UiChannels { tx_log, tx_preview },
@@ -33,6 +41,7 @@ impl Channels {
             },
         };
 
+        // Group receivers semantically (mirrors sender structure for clarity).
         let receivers = ChannelReceivers {
             audio: AudioChannelReceivers { rx_level, rx_spec },
             ui: UiChannelReceivers { rx_log, rx_preview },
@@ -43,6 +52,7 @@ impl Channels {
             },
         };
 
+        // Return both senders and receivers (receivers stay in TUI, senders passed to workers).
         (senders, receivers)
     }
 }

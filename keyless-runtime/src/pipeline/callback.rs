@@ -28,29 +28,33 @@ pub fn create_audio_callback(
     tx_preview: mpsc::SyncSender<String>,
     tx_vad: mpsc::SyncSender<bool>,
 ) -> Box<dyn FnMut(&[f32]) + Send> {
+    // Clone inner transcriber handle (needed for closure capture; Arc is cheap).
     let trans_clone = transcriber.inner_clone();
 
-    // Track PTT and VAD state transitions
+    // Track PTT and VAD state transitions (state machine variables).
     let mut eq_state = EqState::new(eq_cfg.bands, eq_cfg.nfft);
     let mut gate_open = false;
     let mut held_prev = false;
+    // VAD gate: hysteresis-based voice activity detection (prevents flickering).
     let mut vad = VadGate::new(
         vad_config.start_db,
         vad_config.stop_db,
         vad_config.min_duration_ms,
         vad_config.max_silence_ms,
-        100.0,
+        100.0, // Sample rate in Hz (used for timing calculations).
     );
 
-    // Cache zero spectrum vector for idle/closed VAD visuals
+    // Cache zero spectrum vector for idle/closed VAD visuals (avoid per-frame allocation).
     let zero_spectrum = vec![0u16; eq_cfg.bands];
     let mut last_spec_was_zero = true;
 
     Box::new(move |frame: &[f32]| {
-        // Compute audio level for UI feedback
+        // Compute RMS (Root Mean Square) audio level for UI feedback.
+        // RMS = sqrt(sum(samples²) / count); normalized to [0, 100] for gauge display.
         let rms = (frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32).sqrt();
         let level = (rms * 100.0).clamp(0.0, 100.0) as u16;
         let _ = tx_level.try_send(level);
+        // Convert to dB for VAD (20 * log10(rms)); max(1e-8) prevents log(0) = -inf.
         let level_db = 20.0 * (rms.max(1e-8)).log10();
 
         let held_now = hold_flag.load(Ordering::Relaxed);
@@ -66,18 +70,18 @@ pub fn create_audio_callback(
         // Why this matters: PTT controls when we transcribe. Audio only flows to Whisper
         // while the hotkey is held, and we finalize (emit Final) when released.
         if !held_now {
-            // Hotkey is released
+            // Hotkey is released (PTT not held).
             if held_prev {
-                // JUST released (transition): finalize the segment
+                // JUST released (transition): finalize the segment (flush transcriber, emit Final).
                 handle_ptt_released(&trans_clone, &sink, &tx_log, &tx_preview, &sfx);
                 sfx.play_release();
                 held_prev = false;
             }
-            // CRITICAL: Always drain events even when not held, to catch
-            // asynchronous Final events from the inference thread (they arrive later)
+            // CRITICAL: Always drain events even when not held, to catch asynchronous Final events
+            // from the inference thread (they arrive later, after hotkey is released).
             process_transcription_events(&trans_clone, &sink, &tx_log, &tx_preview, &sfx);
 
-            // Show flat/empty visualizer when idle
+            // Show flat/empty visualizer when idle (only send if state changed to avoid spam).
             if !last_spec_was_zero {
                 let _ = tx_spec.try_send(zero_spectrum.clone());
                 last_spec_was_zero = true;
@@ -85,12 +89,13 @@ pub fn create_audio_callback(
             return;
         }
 
-        // Hotkey is held
+        // Hotkey is held (PTT active).
         if !held_prev {
-            // JUST pressed (transition): start a new dictation session
+            // JUST pressed (transition): start a new dictation session.
             handle_ptt_pressed(&tx_log, &tx_preview);
             sfx.play_press();
-            vad.reset(); // Clear VAD timers (don't carry over from previous session)
+            // Reset VAD timers (don't carry over from previous session; fresh start).
+            vad.reset();
             gate_open = false;
             held_prev = true;
         }
@@ -122,22 +127,25 @@ pub fn create_audio_callback(
             let _ = tx_vad.try_send(gate_open);
         }
 
-        // Update EQ visualizer and transcription based on VAD state
+        // Update EQ visualizer and transcription based on VAD state.
         if open_now {
-            // Compute bars only when VAD is open; reduces CPU when gate is closed
+            // Compute bars only when VAD is open (reduces CPU when gate is closed; skip FFT).
             let out = compute_bars(frame, &eq_cfg, &mut eq_state);
             let _ = tx_spec.try_send(out);
             last_spec_was_zero = false;
 
+            // Push audio to transcriber (non-blocking lock; ignore if poisoned).
+            // push_audio may fail if transcriber buffer is full (backpressure).
             if let Ok(mut t) = trans_clone.lock()
                 && let Err(e) = t.push_audio(frame)
             {
                 error!(error = %e, "failed to push audio to transcriber (backpressure)");
                 let _ = tx_log.try_send(format!("push_audio error: {}", e));
             }
+            // Drain Partial events (show live preview while speaking).
             process_transcription_events(&trans_clone, &sink, &tx_log, &tx_preview, &sfx);
         } else {
-            // Gate closed: show empty spectrum only if it changed, skip compute
+            // Gate closed: show empty spectrum only if it changed (skip compute to save CPU).
             if !last_spec_was_zero {
                 let _ = tx_spec.try_send(zero_spectrum.clone());
                 last_spec_was_zero = true;
