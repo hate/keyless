@@ -122,14 +122,18 @@ impl FromStr for OutputMode {
     type Err = KeylessError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Trim whitespace before comparison (handles user input edge cases).
         let v = s.trim();
+        // Case-insensitive comparison for user-friendly parsing.
         if v.eq_ignore_ascii_case("paste") {
             Ok(OutputMode::Paste)
         } else if v.eq_ignore_ascii_case("clipboard") {
             Ok(OutputMode::Clipboard)
         } else if v.eq_ignore_ascii_case("file") {
+            // File mode requires a path; cannot be parsed from string alone.
             Err(KeylessError::Config("file sink requires a path".into()))
         } else {
+            // Unknown sink: return error with the attempted value for debugging.
             Err(KeylessError::Config(format!("unknown sink: {}", v)))
         }
     }
@@ -254,7 +258,9 @@ impl Config {
     /// - Model file existence (done separately at startup for better error messages)
     /// - Hotkey validity (platform-specific, checked during registration)
     pub fn validate(&self) -> KeylessResult<()> {
-        // If outputting to a file, ensure the parent directory exists
+        // If outputting to a file, ensure the parent directory exists.
+        // Check parent() first (returns None for root paths, which we skip).
+        // exists() check prevents silent failures when writing to non-existent directory.
         if let OutputMode::File(path) = &self.output_mode
             && let Some(parent) = path.parent()
             && !parent.exists()
@@ -262,13 +268,16 @@ impl Config {
             return Err(KeylessError::InvalidPath(parent.to_path_buf()));
         }
 
-        // Validate language code length (ISO 639-1 = 2 chars, ISO 639-3 = 3 chars)
+        // Validate language code length (ISO 639-1 = 2 chars, ISO 639-3 = 3 chars).
+        // Allow up to 8 chars for future extensions (some codes include script/region suffixes).
+        // Reject empty or excessively long codes (defensive against malformed config).
         if let Some(lang) = &self.language
             && (lang.len() < 2 || lang.len() > 8)
         {
             return Err(KeylessError::Config("invalid language code".into()));
         }
 
+        // Delegate EQ validation; propagate errors via ? operator.
         self.eq.validate()?;
 
         Ok(())
