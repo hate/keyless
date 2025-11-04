@@ -37,6 +37,7 @@ impl VadGate {
         frame_ms: f32,
     ) -> Self {
         // Frame time is fixed by the audio frame size; it drives the timers.
+        // Convert u16 to f32 for precise millisecond accumulation (avoids integer truncation).
         Self {
             start_db,
             stop_db,
@@ -60,27 +61,39 @@ impl VadGate {
     /// Feed one frame's dB level and update internal timers/state.
     /// Returns true if the frame should be forwarded (currently speaking).
     pub fn update(&mut self, level_db: f32) -> bool {
-        // When open: accumulate silence until hangover threshold, then close
+        // Hysteresis: start_db > stop_db creates a "dead zone" that prevents rapid flicker
+        // when audio level hovers near a single threshold. Example: start=-30dB, stop=-40dB.
         if self.speaking {
+            // Gate is open: check if level drops below stop threshold (beginning of silence).
             if level_db < self.stop_db {
+                // Accumulate silence time; close gate only after hangover period expires.
+                // Hangover prevents premature closure during brief pauses (e.g., between words).
                 self.quiet_ms += self.frame_ms;
                 if self.quiet_ms >= self.max_silence_ms {
+                    // Silence exceeded hangover threshold: close gate and reset all timers.
                     self.speaking = false;
                     self.above_ms = 0.0;
                     self.quiet_ms = 0.0;
                 }
             } else {
+                // Level above stop threshold: reset silence timer (speech detected again).
+                // Prevents false closure during brief dips below stop_db.
                 self.quiet_ms = 0.0;
             }
         } else {
-            // When closed: accumulate time above start threshold until min duration, then open
+            // Gate is closed: check if level rises above start threshold (beginning of speech).
             if level_db > self.start_db {
+                // Accumulate time above threshold; open gate only after minimum duration.
+                // Minimum duration filters out brief noise spikes (e.g., keyboard clicks).
                 self.above_ms += self.frame_ms;
                 if self.above_ms >= self.min_ms {
+                    // Sustained speech detected: open gate and reset timers.
                     self.speaking = true;
                     self.quiet_ms = 0.0;
                 }
             } else {
+                // Level below start threshold: reset attack timer (not enough signal yet).
+                // Prevents false opening from transient noise.
                 self.above_ms = 0.0;
             }
         }

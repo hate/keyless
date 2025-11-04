@@ -67,12 +67,14 @@ pub fn default_input_name() -> keyless_core::error::KeylessResult<String> {
 pub fn list_input_device_names() -> keyless_core::error::KeylessResult<Vec<String>> {
     let host = cpal::default_host();
     let mut out = Vec::new();
+    // Iterate all input devices; skip devices where name() fails (may be unplugged/permission issue).
     for dev in host.input_devices().map_err(|e| {
         keyless_core::error::KeylessError::Audio(format!(
             "failed to enumerate input devices: {}",
             e
         ))
     })? {
+        // Silently skip devices that can't provide a name (defensive; better than failing entire list).
         if let Ok(name) = dev.name() {
             out.push(name);
         }
@@ -84,6 +86,7 @@ pub fn list_input_device_names() -> keyless_core::error::KeylessResult<Vec<Strin
 pub fn list_input_devices() -> keyless_core::error::KeylessResult<Vec<InputDevice>> {
     let host = cpal::default_host();
     let mut out = Vec::new();
+    // Wrap each device in Arc for shared ownership (allows cloning InputDevice handles).
     for dev in host.input_devices().map_err(|e| {
         keyless_core::error::KeylessError::Audio(format!(
             "failed to enumerate input devices: {}",
@@ -100,9 +103,11 @@ pub fn list_input_devices() -> keyless_core::error::KeylessResult<Vec<InputDevic
 /// Get the system default input device as an opaque handle.
 pub fn default_input_device() -> keyless_core::error::KeylessResult<InputDevice> {
     let host = cpal::default_host();
+    // OS chooses default device (usually the primary microphone or first available).
     let dev = host.default_input_device().ok_or_else(|| {
         keyless_core::error::KeylessError::Audio("no input device available".to_string())
     })?;
+    // Wrap in Arc for shared ownership (allows cloning the handle).
     Ok(InputDevice {
         inner: Arc::new(dev),
     })
