@@ -190,11 +190,30 @@ Unit tests cover preprocessing and token filtering. Full model inference is exer
 
 ### Module structure
 
-- `src/lib.rs`: threading, public API, event channels, rubato resampling
-- `src/model.rs`: model/tokenizer download and load
-- `src/preprocessing.rs`: mel filter generation and PCM→mel
-- `src/decode.rs`: token generation/decoding
-- `src/inference.rs`: end‑to‑end inference pipeline
+- `src/lib.rs`: Public API re-exports and module declarations
+- `src/config.rs`: Configuration types (`WhisperConfig`, `WhisperLoadPhase`, `PhaseState`)
+- `src/device.rs`: Device selection and caching (Metal > CUDA > CPU)
+- `src/transcriber.rs`: `RealtimeTranscriber` trait definition
+- `src/whisper.rs`: Main `Whisper` transcriber implementation
+  - `whisper/construct.rs`: Construction and initialization
+  - `whisper/inference_thread.rs`: Inference thread (runs Whisper model)
+  - `whisper/worker_thread.rs`: Worker thread (resampling, accumulation, partial previews)
+  - `whisper/trait_impl.rs`: Trait implementations (`RealtimeTranscriber`, `Drop`)
+  - `whisper/types.rs`: Type definitions (`Whisper`, `WhisperCmd`, `InferReq`)
+- `src/model.rs`: Model loading and management
+  - `model/loader.rs`: Model loading with progress callbacks
+  - `model/mel_filters.rs`: Mel filter bank generation
+  - `model/files.rs`: File detection and location helpers
+  - `model/types.rs`: Model type definitions (`Model`, `WhisperModel`, `WhisperTokens`)
+- `src/decode.rs`: Token generation and text decoding
+  - `decode/fallback.rs`: Temperature fallback decoding
+  - `decode/language.rs`: Language detection from audio features
+  - `decode/temperature.rs`: Single-temperature decoding
+  - `decode/helpers.rs`: Helper functions (token decoding, repetition detection)
+  - `decode/constants.rs`: Decoding constants (thresholds, temperatures)
+  - `decode/result.rs`: Decoding result type with quality metrics
+- `src/preprocessing.rs`: PCM→mel spectrogram conversion (uses pre-generated mel filters)
+- `src/inference.rs`: End‑to‑end inference pipeline
 
 ### Platform support (macOS, Windows, Linux)
 
