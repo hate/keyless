@@ -50,6 +50,8 @@ use tracing_subscriber::{EnvFilter, fmt};
 ///
 /// Prefers `KEYLESS_LOG` over `RUST_LOG`, defaulting to `"info"`.
 fn env_log_level() -> String {
+    // Prefer KEYLESS_LOG (app-specific), fallback to RUST_LOG (standard), then default to "info".
+    // or_else chains fallthrough; only calls closure if previous var() returned Err.
     std::env::var("KEYLESS_LOG")
         .or_else(|_| std::env::var("RUST_LOG"))
         .unwrap_or_else(|_| "info".to_string())
@@ -63,6 +65,9 @@ fn env_log_level() -> String {
 pub fn init_stdout() {
     let env_level = env_log_level();
 
+    // Ignore init errors (try_init returns Err if subscriber already set; idempotent).
+    // with_target(false) hides crate names for cleaner output (level/time shown instead).
+    // uptime() shows time since app start (better than absolute time for short runs).
     let _ = tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::new(env_level))
         .with_target(false)
@@ -77,6 +82,9 @@ pub fn init_stdout() {
 pub fn init_json() {
     let env_level = env_log_level();
 
+    // Ignore init errors (try_init returns Err if subscriber already set; idempotent).
+    // with_target(true) includes crate names (useful for programmatic filtering).
+    // flatten_event, with_current_span, with_span_list provide full context in JSON.
     let _ = tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::new(env_level))
         .with_target(true)
@@ -96,15 +104,20 @@ struct ChannelWriter {
 
 impl Write for ChannelWriter {
     fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+        // Skip empty buffers (tracing may call write with empty slices).
         if !buf.is_empty() {
-            // Best-effort UTF-8 conversion; lossy is fine for logs
+            // Best-effort UTF-8 conversion; lossy is fine for logs (replaces invalid bytes with �).
+            // to_string() clones the String (needed for send; lossy returns Cow<str>).
             let s = String::from_utf8_lossy(buf).to_string();
+            // Try-send is non-blocking; drops log line if channel full (prevents stalling).
             let _ = self.tx.try_send(s);
         }
+        // Always return full buffer length (Write contract: always claim to write all bytes).
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> IoResult<()> {
+        // No-op: channel send is immediate (no buffering to flush).
         Ok(())
     }
 }
@@ -120,6 +133,8 @@ impl<'a> MakeWriter<'a> for ChannelWriterFactory {
     type Writer = ChannelWriter;
 
     fn make_writer(&'a self) -> Self::Writer {
+        // Clone channel sender for each writer instance (tracing may create multiple writers).
+        // SyncSender is cheap to clone (just increments reference count).
         ChannelWriter {
             tx: self.tx.clone(),
         }
@@ -128,6 +143,8 @@ impl<'a> MakeWriter<'a> for ChannelWriterFactory {
 
 /// Get the log file path in the keyless cache.
 fn log_file_path() -> std::path::PathBuf {
+    // Use platform-specific cache directory (e.g., ~/.cache/keyless/session.log).
+    // Fallback to .cache in current directory if cache_dir() unavailable (rare edge case).
     if let Some(base) = dirs_next::cache_dir() {
         base.join("keyless").join("session.log")
     } else {
@@ -145,14 +162,21 @@ struct FileWriter {
 
 impl Write for FileWriter {
     fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+        // Mutex protects concurrent writes from multiple tracing threads.
+        // Ignore lock errors (continue even if mutex poisoned); better than panicking.
         if let Ok(mut f) = self.file.lock() {
+            // Ignore write errors (best-effort logging; don't fail on disk full).
             let _ = f.write(buf);
         }
+        // Always return full buffer length (Write contract: always claim to write all bytes).
         Ok(buf.len())
     }
 
     fn flush(&mut self) -> IoResult<()> {
+        // Flush file buffer to ensure logs are written to disk (important for crash recovery).
+        // Ignore lock errors (continue even if mutex poisoned).
         if let Ok(mut f) = self.file.lock() {
+            // Ignore flush errors (best-effort; disk may be full or filesystem may be read-only).
             let _ = f.flush();
         }
         Ok(())
@@ -170,13 +194,15 @@ impl<'a> MakeWriter<'a> for FileWriterFactory {
     type Writer = FileWriter;
 
     fn make_writer(&'a self) -> Self::Writer {
-        // Try to open the configured log file, with platform-aware fallbacks
+        // Three-tier fallback: primary log file → null device → temp file → panic.
+        // Ensures logging never silently fails (better to panic than lose all logs).
         let file = OpenOptions::new()
             .create(true)
             .append(true)
             .open(&self.file_path)
             .or_else(|_| {
-                // Fallback 1: platform-specific null device (should always exist)
+                // Fallback 1: platform-specific null device (should always exist).
+                // Discards logs but prevents panic (system likely broken if null device missing).
                 #[cfg(unix)]
                 let null_path = "/dev/null";
                 #[cfg(windows)]
@@ -184,7 +210,8 @@ impl<'a> MakeWriter<'a> for FileWriterFactory {
                 OpenOptions::new().write(true).open(null_path)
             })
             .or_else(|_| {
-                // Fallback 2: temp file in current directory
+                // Fallback 2: temp file in current directory (last resort before panic).
+                // May fail if current dir is read-only, but better than nothing.
                 File::create(".keyless.log.tmp")
             })
             .unwrap_or_else(|e| {
@@ -203,6 +230,7 @@ impl<'a> MakeWriter<'a> for FileWriterFactory {
                 )
             });
 
+        // Wrap file in Mutex for thread-safe concurrent writes (multiple tracing threads).
         FileWriter {
             file: Mutex::new(file),
         }
@@ -220,14 +248,15 @@ impl<'a> MakeWriter<'a> for FileWriterFactory {
 ///
 /// Safe to call once at startup. Subsequent calls will no-op if a subscriber exists.
 pub fn init_channel(tx: SyncSender<String>) {
-    // Ensure log directory exists
+    // Ensure log directory exists (e.g., ~/.cache/keyless/).
+    // Ignore creation errors (best-effort; may fail due to permissions).
     let log_path = log_file_path();
     if let Some(dir) = log_path.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
 
-    // Shared filter: quiet dependencies, verbose for keyless crates
-    // This applies to both TUI and file to keep them consistent
+    // Shared filter: quiet dependencies (info+), verbose for keyless crates (debug+).
+    // This applies to both TUI and file to keep them consistent (same log level).
     let log_filter = EnvFilter::new(
         "info,\
          keyless=debug,\
@@ -239,7 +268,10 @@ pub fn init_channel(tx: SyncSender<String>) {
          keyless_core=debug",
     );
 
-    // Channel writer (for TUI display)
+    // Channel writer (for TUI display): routes logs to mpsc channel for UI consumption.
+    // without_time() removes timestamps (TUI shows its own timing).
+    // with_ansi(false) strips color codes (TUI applies its own styling).
+    // compact() uses shorter format (saves channel bandwidth).
     let channel_layer = tracing_subscriber::fmt::layer()
         .with_writer(ChannelWriterFactory { tx })
         .without_time()
@@ -247,11 +279,12 @@ pub fn init_channel(tx: SyncSender<String>) {
         .compact()
         .with_filter(log_filter.clone());
 
-    // File writer (same filter as TUI for consistency)
+    // File writer (same filter as TUI for consistency): appends to disk log file.
     let file_writer = FileWriterFactory {
         file_path: log_path,
     };
 
+    // File layer: same formatting as channel (compact, no time, no ANSI) for consistency.
     let file_layer = tracing_subscriber::fmt::layer()
         .with_writer(file_writer)
         .without_time()
@@ -259,7 +292,8 @@ pub fn init_channel(tx: SyncSender<String>) {
         .compact()
         .with_filter(log_filter);
 
-    // Ignore error if already set (e.g., in tests); we want best-effort setup
+    // Ignore error if already set (e.g., in tests); we want best-effort setup.
+    // Registry combines both layers (channel + file) into single subscriber.
     let _ = tracing_subscriber::registry()
         .with(channel_layer)
         .with(file_layer)
