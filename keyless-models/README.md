@@ -18,8 +18,9 @@ HTTP/HF helpers and model metadata/cache utilities for Keyless.
 - `KEYLESS_CACHE_DIR`: override cache root (tests/dev)
 
 ## Module structure
-- `download.rs`: Model download with progress reporting and cancellation (`DownloadEvent`, `ensure_model_cached`)
+- `download`: Model download with progress reporting and cancellation (`DownloadEvent`, `ensure_model_cached`)
   - Status-aware resume (206 append, 200 restart/truncate) with periodic progress (≤4 Hz)
+  - Organized into submodules: `events`, `model`, `small_files`, `large_file`, `progress`
 - `hf.rs`: HF cache path helpers (`keyless_cache_repo_dir`, `get_local_model_size`, `delete_partial_file`)
 - `net.rs`: HTTP utilities (auth headers, URL resolution, retry/backoff)
 - `meta.rs`: Sizes TTL cache management
