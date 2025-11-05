@@ -45,6 +45,8 @@ fn run_inner() -> KeylessResult<()> {
             bridge::update_config,
             bridge::get_hotkey,
             bridge::set_hotkey,
+            bridge::show_pill,
+            bridge::hide_pill,
         ]);
 
     builder

@@ -5,6 +5,8 @@
 //! so the UI can be integrated without blocking.
 // Intentionally do not depend on KeylessError for IPC return types.
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Manager};
+use tauri_plugin_positioner::{Position, WindowExt};
 
 /// High-level status exposed to the UI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,4 +78,28 @@ pub fn get_hotkey() -> IpcResult<String> {
 #[tauri::command]
 pub fn set_hotkey(_label: String) -> IpcResult<()> {
     Ok(())
+}
+
+/// Show the pill HUD at the bottom center.
+#[tauri::command]
+pub fn show_pill(app: AppHandle) -> IpcResult<()> {
+    if let Some(win) = app.get_webview_window("pill") {
+        let _ = win.move_window(Position::BottomCenter);
+        let _ = win.show();
+        let _ = win.set_focus();
+        Ok(())
+    } else {
+        Err("missing pill window".into())
+    }
+}
+
+/// Hide the pill HUD.
+#[tauri::command]
+pub fn hide_pill(app: AppHandle) -> IpcResult<()> {
+    if let Some(win) = app.get_webview_window("pill") {
+        let _ = win.hide();
+        Ok(())
+    } else {
+        Err("missing pill window".into())
+    }
 }

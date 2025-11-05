@@ -16,7 +16,7 @@ pub fn init(app: &mut App) -> KeylessResult<()> {
     let handle = app.handle();
     // Build tray menu (settings, quit). The select-output submenu will be added later.
     let menu = Menu::new(handle).map_err(|e| KeylessError::System(format!("menu error: {e}")))?;
-    let settings = MenuItem::with_id(handle, "settings", "settings…", true, None::<&str>)
+    let settings = MenuItem::with_id(handle, "settings", "settings", true, None::<&str>)
         .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
     let quit = MenuItem::with_id(handle, "quit", "quit", true, None::<&str>)
         .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
