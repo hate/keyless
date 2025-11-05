@@ -11,6 +11,8 @@
 //!
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use keyless_core::error::{KeylessError, KeylessResult};
+mod tray;
+use tauri::Manager;
 
 #[tauri::command]
 /// A placeholder command used by the default scaffold; returns a greeting.
@@ -26,6 +28,19 @@ fn greet(name: &str) -> String {
 fn run_inner() -> KeylessResult<()> {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ))
+        .plugin(tauri_plugin_positioner::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            let _ = tray::show_popover(app.app_handle());
+        }))
+        .setup(|app| {
+            let _ = tray::init(app);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![greet]);
 
     builder
@@ -40,3 +55,5 @@ pub fn run() {
         eprintln!("{e}");
     }
 }
+
+// window helpers live in windows.rs; tray helpers live in tray.rs.
