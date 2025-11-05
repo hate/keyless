@@ -13,7 +13,7 @@ Powered by OpenAI's Whisper.
 [![Docs](https://img.shields.io/github/actions/workflow/status/hate/keyless/docs.yml?branch=main&label=docs)](https://github.com/hate/keyless/actions/workflows/docs.yml)
 [![Release](https://img.shields.io/github/v/release/hate/keyless)](https://github.com/hate/keyless/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.75+-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-stable-orange.svg)](https://www.rust-lang.org/)
 
 [Website](https://keyless.sh) • [Features](#-features) • [Quick Start](#-quick-start) • [How It Works](#-how-it-works) • [Tech Stack](#-tech-stack) • [Contributing](CONTRIBUTING.md)
 
