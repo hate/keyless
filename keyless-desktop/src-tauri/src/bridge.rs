@@ -36,14 +36,14 @@ pub fn get_status() -> IpcResult<Status> {
 
 /// Begin listening (push-to-talk press).
 #[tauri::command]
-pub fn start_listening() -> IpcResult<()> {
-    Ok(())
+pub fn start_listening(app: AppHandle) -> IpcResult<()> {
+    crate::runtime::start(&app).map_err(|e| e.to_string())
 }
 
 /// Stop listening (push-to-talk release). If `cancel` is true, discard output.
 #[tauri::command]
-pub fn stop_listening(_cancel: bool) -> IpcResult<()> {
-    Ok(())
+pub fn stop_listening(app: AppHandle, cancel: bool) -> IpcResult<()> {
+    crate::runtime::stop(&app, cancel).map_err(|e| e.to_string())
 }
 
 /// List available output sinks.

@@ -12,6 +12,7 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use keyless_core::error::{KeylessError, KeylessResult};
 mod bridge;
+mod runtime;
 mod tray;
 use tauri::Manager;
 
@@ -33,6 +34,7 @@ fn run_inner() -> KeylessResult<()> {
         }))
         .setup(|app| {
             let _ = tray::init(app);
+            let _ = runtime::init(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
