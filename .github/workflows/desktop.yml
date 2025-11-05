@@ -2,10 +2,10 @@ name: desktop
 
 on:
   push:
-    branches: [ main, desktop ]
-    tags: [ 'v*' ]
+    branches: [main, desktop]
+    tags: ["v*"]
   pull_request:
-    branches: [ main, desktop ]
+    branches: [main, desktop]
   workflow_dispatch:
 
 concurrency:
@@ -29,8 +29,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
-          cache: 'pnpm'
+          node-version: "lts/*"
+          cache: "pnpm"
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -67,4 +67,3 @@ jobs:
           name: keyless-desktop-macos
           path: |
             keyless-desktop/src-tauri/target/**/bundle/**
-

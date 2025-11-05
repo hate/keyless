@@ -55,5 +55,3 @@ pub fn run() {
         eprintln!("{e}");
     }
 }
-
-// window helpers live in windows.rs; tray helpers live in tray.rs.
