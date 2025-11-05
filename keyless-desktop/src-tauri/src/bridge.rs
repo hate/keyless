@@ -4,7 +4,9 @@
 //! runtime and config crates next. For now they return minimal placeholders
 //! so the UI can be integrated without blocking.
 // Intentionally do not depend on KeylessError for IPC return types.
+use keyless_core::config::{self, Config, OutputMode, storage};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_positioner::{Position, WindowExt};
 
@@ -47,37 +49,73 @@ pub fn stop_listening(_cancel: bool) -> IpcResult<()> {
 /// List available output sinks.
 #[tauri::command]
 pub fn list_sinks() -> IpcResult<Vec<String>> {
-    Ok(Vec::new())
+    Ok(vec!["paste".into(), "clipboard".into(), "file".into()])
 }
 
 /// Select output sink by id.
 #[tauri::command]
-pub fn select_sink(_id: String) -> IpcResult<()> {
-    Ok(())
+pub fn select_sink(id: String) -> IpcResult<()> {
+    let mut cfg: Config = storage::load_config().unwrap_or_default();
+    match id.as_str() {
+        "paste" => cfg.output_mode = OutputMode::Paste,
+        "clipboard" => cfg.output_mode = OutputMode::Clipboard,
+        "file" => {
+            if let OutputMode::File(_) = cfg.output_mode {
+                // keep existing file path
+            } else {
+                return Err("file sink requires a path (set in settings)".into());
+            }
+        }
+        _ => return Err(format!("unknown sink: {}", id)),
+    }
+    storage::save_config(&cfg).map_err(|e| format!("save config: {}", e))
 }
 
 /// Get current configuration as JSON.
 #[tauri::command]
 pub fn get_config() -> IpcResult<serde_json::Value> {
-    Ok(serde_json::json!({}))
+    let cfg: Config = storage::load_config().unwrap_or_default();
+    serde_json::to_value(&cfg).map_err(|e| format!("serialize: {}", e))
 }
 
 /// Apply a partial configuration update.
 #[tauri::command]
 pub fn update_config(_patch: serde_json::Value) -> IpcResult<()> {
-    Ok(())
+    let mut cfg: Config = storage::load_config().unwrap_or_default();
+    // minimal patcher: handle outputMode and hotkey, and file path like { outputMode:"file", filePath:"/path" }
+    if let Some(om) = _patch.get("outputMode").and_then(|v| v.as_str()) {
+        match config::OutputMode::from_str(om) {
+            Ok(OutputMode::Paste) => cfg.output_mode = OutputMode::Paste,
+            Ok(OutputMode::Clipboard) => cfg.output_mode = OutputMode::Clipboard,
+            Ok(OutputMode::File(_)) => {
+                if let Some(p) = _patch.get("filePath").and_then(|v| v.as_str()) {
+                    cfg.output_mode = OutputMode::File(std::path::PathBuf::from(p));
+                } else if !matches!(cfg.output_mode, OutputMode::File(_)) {
+                    return Err("file sink requires filePath".into());
+                }
+            }
+            Err(e) => return Err(format!("outputMode: {}", e)),
+        }
+    }
+    if let Some(h) = _patch.get("hotkey").and_then(|v| v.as_str()) {
+        cfg.hotkey = h.to_string();
+    }
+    storage::save_config(&cfg).map_err(|e| format!("save config: {}", e))
 }
 
 /// Get the current push-to-talk hotkey label.
 #[tauri::command]
 pub fn get_hotkey() -> IpcResult<String> {
-    Ok("right command".to_string())
+    let cfg: Config = storage::load_config().unwrap_or_default();
+    Ok(cfg.hotkey)
 }
 
 /// Set a new push-to-talk hotkey label.
 #[tauri::command]
 pub fn set_hotkey(_label: String) -> IpcResult<()> {
-    Ok(())
+    let mut cfg: Config = storage::load_config().unwrap_or_default();
+    cfg.hotkey = _label;
+    storage::save_config(&cfg).map_err(|e| format!("save config: {}", e))
 }
 
 /// Show the pill HUD at the bottom center.
