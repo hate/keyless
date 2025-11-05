@@ -8,6 +8,7 @@ members = [
     "keyless-logging",
     "keyless-models",
     "keyless-runtime",
+    "keyless-desktop/src-tauri",
 ]
 resolver = "3"
 
