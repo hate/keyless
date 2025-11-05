@@ -16,10 +16,37 @@ pub fn init(app: &mut App) -> KeylessResult<()> {
     let handle = app.handle();
     // Build tray menu (settings, quit). The select-output submenu will be added later.
     let menu = Menu::new(handle).map_err(|e| KeylessError::System(format!("menu error: {e}")))?;
+    let sink_paste = MenuItem::with_id(
+        handle,
+        "sink_paste",
+        "select output: paste",
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+    let sink_clipboard = MenuItem::with_id(
+        handle,
+        "sink_clipboard",
+        "select output: clipboard",
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+    let sink_file = MenuItem::with_id(
+        handle,
+        "sink_file",
+        "select output: file",
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
     let settings = MenuItem::with_id(handle, "settings", "settings", true, None::<&str>)
         .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
     let quit = MenuItem::with_id(handle, "quit", "quit", true, None::<&str>)
         .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+    let _ = menu.append(&sink_paste);
+    let _ = menu.append(&sink_clipboard);
+    let _ = menu.append(&sink_file);
     let _ = menu.append(&settings);
     let _ = menu.append(&quit);
 
@@ -34,6 +61,15 @@ pub fn init(app: &mut App) -> KeylessResult<()> {
         .on_menu_event(|app, event| {
             let id = event.id().as_ref();
             match id {
+                "sink_paste" => {
+                    let _ = crate::bridge::select_sink("paste".to_string());
+                }
+                "sink_clipboard" => {
+                    let _ = crate::bridge::select_sink("clipboard".to_string());
+                }
+                "sink_file" => {
+                    let _ = crate::bridge::select_sink("file".to_string());
+                }
                 "settings" => {
                     if let Some(win) = app.get_webview_window("settings") {
                         let _ = win.show();
