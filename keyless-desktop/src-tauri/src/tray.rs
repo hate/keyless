@@ -51,8 +51,8 @@ pub fn init(app: &mut App) -> KeylessResult<()> {
     let _ = menu.append(&quit);
 
     let _tray = TrayIconBuilder::new()
+        .icon_as_template(true)
         .menu(&menu)
-        // use default app icon if available; otherwise the OS provides one
         .on_tray_icon_event(|app, event| {
             if let TrayIconEvent::Click { .. } = event {
                 let _ = toggle_popover(app.app_handle());
