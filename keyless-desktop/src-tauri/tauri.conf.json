@@ -12,9 +12,35 @@
   "app": {
     "windows": [
       {
-        "title": "keyless-desktop",
-        "width": 800,
-        "height": 600
+        "label": "popover",
+        "title": "keyless",
+        "width": 380,
+        "height": 320,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "visible": false,
+        "alwaysOnTop": true
+      },
+      {
+        "label": "settings",
+        "title": "keyless settings",
+        "width": 720,
+        "height": 560,
+        "resizable": true,
+        "visible": false
+      },
+      {
+        "label": "pill",
+        "title": "pill",
+        "width": 360,
+        "height": 120,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "visible": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
       }
     ],
     "security": {
