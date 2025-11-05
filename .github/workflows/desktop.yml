@@ -1,0 +1,57 @@
+name: desktop
+
+on:
+  push:
+    branches: [ main, desktop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, desktop ]
+
+jobs:
+  ci:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'pnpm'
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install frontend deps
+        run: pnpm -C keyless-desktop install --frozen-lockfile
+
+      - name: Build desktop (debug for PRs)
+        if: github.event_name == 'pull_request'
+        run: pnpm -C keyless-desktop tauri build --debug
+
+      - name: Build desktop (release for tags)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: pnpm -C keyless-desktop tauri build
+
+      - name: Upload artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyless-desktop-macos
+          path: |
+            keyless-desktop/src-tauri/target/**/bundle/**
+
