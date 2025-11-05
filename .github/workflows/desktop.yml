@@ -44,5 +44,8 @@ jobs:
       - name: Install frontend deps
         run: pnpm -C keyless-desktop install --frozen-lockfile
 
+      - name: Frontend tests
+        run: pnpm -C keyless-desktop test
+
       - name: Build desktop (debug)
         run: pnpm -C keyless-desktop tauri build --debug

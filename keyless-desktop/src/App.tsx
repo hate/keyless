@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import "./App.css";
 
 function Popover() {
@@ -32,7 +32,8 @@ function Pill() {
 export default function App() {
 	const [label, setLabel] = useState<string>("popover");
 	useEffect(() => {
-		getCurrentWindow().then((w) => setLabel(w.label));
+		const w = getCurrentWebviewWindow();
+		setLabel(w.label);
 	}, []);
 
 	const View = useMemo(() => {

@@ -9,7 +9,7 @@ Write-Host "──────────────────────�
 Write-Host ""
 
 # Step 1: Format
-Write-Host -NoNewline "[1/9] Format check...            "
+Write-Host -NoNewline "[1/11] Format check...           "
 $null = cargo fmt --all -- --check 2>&1
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓"
@@ -20,7 +20,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Step 2: Clippy
-Write-Host -NoNewline "[2/9] Clippy (strict)...         "
+Write-Host -NoNewline "[2/11] Clippy (strict)...        "
 $null = cargo clippy --all-targets -- -D warnings -D clippy::unwrap_used -D clippy::expect_used 2>&1 | Out-File -FilePath $env:TEMP\clippy.log
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓"
@@ -31,7 +31,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Step 3: Build
-Write-Host -NoNewline "[3/9] Build (all targets)...     "
+Write-Host -NoNewline "[3/11] Build (all targets)...    "
 $null = cargo build --workspace --all-targets 2>&1 | Out-File -FilePath $env:TEMP\build.log
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓"
@@ -42,7 +42,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Step 4: Test
-Write-Host -NoNewline "[4/9] Tests (workspace)...       "
+Write-Host -NoNewline "[4/11] Tests (workspace)...      "
 $null = cargo test --workspace --no-fail-fast 2>&1 | Out-File -FilePath $env:TEMP\test.log
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓"
@@ -53,7 +53,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Step 5: Docs build
-Write-Host -NoNewline "[5/9] Docs build...              "
+Write-Host -NoNewline "[5/11] Docs build...             "
 $env:RUSTDOCFLAGS = "-D warnings"
 $null = cargo doc --workspace --no-deps 2>&1 | Out-File -FilePath $env:TEMP\docs.log
 if ($LASTEXITCODE -eq 0) {
@@ -65,7 +65,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Step 6: Doctests
-Write-Host -NoNewline "[6/9] Doctests...                "
+Write-Host -NoNewline "[6/11] Doctests...               "
 $null = cargo test --workspace --doc 2>&1 | Out-File -FilePath $env:TEMP\doctest.log
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓"
@@ -76,7 +76,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Step 7: Clippy doc lints on private items
-Write-Host -NoNewline "[7/9] Clippy (docs private)...   "
+Write-Host -NoNewline "[7/11] Clippy (docs private)...  "
 $null = cargo clippy --workspace -- -D clippy::missing_docs_in_private_items 2>&1 | Out-File -FilePath $env:TEMP\clippy_docs.log
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓"
@@ -86,8 +86,36 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# Step 8: Cargo deny (security advisories, licenses, duplicates)
-Write-Host -NoNewline "[8/9] Cargo deny check...        "
+# Step 8: Frontend typecheck (TS)
+Write-Host -NoNewline "[8/11] Frontend typecheck...     "
+$null = pnpm -C keyless-desktop install --frozen-lockfile 2>&1 | Out-File -FilePath $env:TEMP\frontend_install.log
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "✗"
+    Write-Host "      See errors: Get-Content $env:TEMP\frontend_install.log | Select-String -Pattern 'ERR|error'"
+    exit 1
+}
+$null = pnpm -C keyless-desktop exec tsc --noEmit 2>&1 | Out-File -FilePath $env:TEMP\frontend_typecheck.log
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓"
+} else {
+    Write-Host "✗"
+    Write-Host "      See errors: Get-Content $env:TEMP\frontend_typecheck.log | Select-String -Pattern 'error'"
+    exit 1
+}
+
+# Step 9: Frontend tests (Vitest)
+Write-Host -NoNewline "[9/11] Frontend tests...         "
+$null = pnpm -C keyless-desktop test 2>&1 | Out-File -FilePath $env:TEMP\frontend_test.log
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "✓"
+} else {
+    Write-Host "✗"
+    Write-Host "      See errors: Get-Content $env:TEMP\frontend_test.log | Select-String -Pattern 'FAIL|Error'"
+    exit 1
+}
+
+# Step 10: Cargo deny (security advisories, licenses, duplicates)
+Write-Host -NoNewline "[10/11] Cargo deny check...       "
 $null = cargo deny check 2>&1 | Out-File -FilePath $env:TEMP\cargo_deny.log
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓"
@@ -98,8 +126,8 @@ if ($LASTEXITCODE -eq 0) {
     exit 1
 }
 
-# Step 9: Cargo audit (RustSec vulnerability database)
-Write-Host -NoNewline "[9/9] Cargo audit...             "
+# Step 11: Cargo audit (RustSec vulnerability database)
+Write-Host -NoNewline "[11/11] Cargo audit...            "
 $null = cargo audit 2>&1 | Out-File -FilePath $env:TEMP\cargo_audit.log
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓"
