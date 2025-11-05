@@ -15,13 +15,6 @@ mod bridge;
 mod tray;
 use tauri::Manager;
 
-#[tauri::command]
-/// A placeholder command used by the default scaffold; returns a greeting.
-/// This exists only to verify IPC wiring during early development.
-fn greet(name: &str) -> String {
-    format!("hello, {}", name)
-}
-
 /// Builds and runs the Tauri application.
 ///
 /// This function configures plugins and the command handler, then starts
@@ -43,7 +36,6 @@ fn run_inner() -> KeylessResult<()> {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            greet,
             bridge::get_status,
             bridge::start_listening,
             bridge::stop_listening,
