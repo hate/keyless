@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-dark: #0f0f0f;
+  --border: #2a2a2a;
+  --text-primary: #e5e5e5;
+  --text-secondary: #a0a0a0;
+}
+
+body {
+  background: transparent; /* let the macOS transparent window show through */
+  color: var(--text-primary);
+}
+
+.blink {
+  @apply animate-blink;
+}
+
+.scrollbar-hide {
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Custom slider styling to match dark theme */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* Track styling - Webkit browsers (Chrome, Safari, Edge) */
+input[type="range"]::-webkit-slider-runnable-track {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  height: 6px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #e8e8e8;
+  border: 1px solid #2a2a2a;
+  border-radius: 50%;
+  height: 14px;
+  width: 14px;
+  margin-top: -5px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: #ffffff;
+}
+
+input[type="range"]:focus::-webkit-slider-thumb {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(232, 232, 232, 0.2);
+}
+
+/* Track styling - Firefox */
+input[type="range"]::-moz-range-track {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  height: 6px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: #e8e8e8;
+  border: 1px solid #2a2a2a;
+  border-radius: 50%;
+  height: 14px;
+  width: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  background: #ffffff;
+}
+
+input[type="range"]:focus::-moz-range-thumb {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(232, 232, 232, 0.2);
+}
+

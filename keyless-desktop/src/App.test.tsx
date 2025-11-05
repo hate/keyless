@@ -17,7 +17,7 @@ describe("App view selection", () => {
   it("renders idle popover by default", () => {
     render(<App />);
     expect(screen.getByText(/idle/i)).toBeInTheDocument();
-    expect(screen.getByText(/hold your hotkey/i)).toBeInTheDocument();
+    expect(screen.getByText(/to start listening/i)).toBeInTheDocument();
   });
 });
 

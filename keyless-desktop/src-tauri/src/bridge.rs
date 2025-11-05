@@ -31,25 +31,21 @@ type IpcResult<T> = Result<T, String>;
 /// Return the current high-level status.
 #[tauri::command]
 pub fn get_status() -> IpcResult<Status> {
+    // PTT controls listening state; status is updated via events, not polling
     Ok(Status::Idle)
-}
-
-/// Begin listening (push-to-talk press).
-#[tauri::command]
-pub fn start_listening(app: AppHandle) -> IpcResult<()> {
-    crate::runtime::start(&app).map_err(|e| e.to_string())
-}
-
-/// Stop listening (push-to-talk release). If `cancel` is true, discard output.
-#[tauri::command]
-pub fn stop_listening(app: AppHandle, cancel: bool) -> IpcResult<()> {
-    crate::runtime::stop(&app, cancel).map_err(|e| e.to_string())
 }
 
 /// List available output sinks.
 #[tauri::command]
 pub fn list_sinks() -> IpcResult<Vec<String>> {
     Ok(vec!["paste".into(), "clipboard".into(), "file".into()])
+}
+
+/// List available input devices.
+#[tauri::command]
+pub fn list_input_devices() -> IpcResult<Vec<String>> {
+    keyless_audio::input::list_input_device_names()
+        .map_err(|e| format!("failed to list devices: {}", e))
 }
 
 /// Select output sink by id.
@@ -99,6 +95,64 @@ pub fn update_config(_patch: serde_json::Value) -> IpcResult<()> {
     }
     if let Some(h) = _patch.get("hotkey").and_then(|v| v.as_str()) {
         cfg.hotkey = h.to_string();
+        // Update PTT listener preset_mode when hotkey changes
+        let _ = crate::runtime::update_preset_mode(h);
+    }
+    // Device name (optional)
+    if let Some(dev_val) = _patch.get("deviceName") {
+        if dev_val.is_null() {
+            cfg.device_name = None;
+        } else if let Some(s) = dev_val.as_str() {
+            cfg.device_name = Some(s.to_string());
+        }
+    }
+    // Optional language (None means auto)
+    if let Some(lang_val) = _patch.get("language") {
+        if lang_val.is_null() {
+            cfg.language = None;
+        } else if let Some(s) = lang_val.as_str() {
+            cfg.language = Some(s.to_string());
+        }
+    }
+    // Optional model (by id/path string)
+    if let Some(model_id) = _patch.get("modelPath").and_then(|v| v.as_str()) {
+        cfg.model_path = std::path::PathBuf::from(model_id);
+    }
+    // VAD thresholds
+    if let Some(vad) = _patch.get("vad").and_then(|v| v.as_object()) {
+        if let Some(v) = vad.get("startDb").and_then(|v| v.as_f64()) {
+            cfg.vad.start_db = v as f32;
+        }
+        if let Some(v) = vad.get("stopDb").and_then(|v| v.as_f64()) {
+            cfg.vad.stop_db = v as f32;
+        }
+        if let Some(v) = vad.get("minDurationMs").and_then(|v| v.as_u64()) {
+            cfg.vad.min_duration_ms = (v as u16).min(u16::MAX);
+        }
+        if let Some(v) = vad.get("maxSilenceMs").and_then(|v| v.as_u64()) {
+            cfg.vad.max_silence_ms = (v as u16).min(u16::MAX);
+        }
+    }
+    // EQ tuning
+    if let Some(eq) = _patch.get("eq").and_then(|v| v.as_object()) {
+        if let Some(v) = eq.get("bands").and_then(|v| v.as_u64()) {
+            cfg.eq.bands = (v as u16).max(16).min(128);
+        }
+        if let Some(v) = eq.get("noiseReduction").and_then(|v| v.as_f64()) {
+            cfg.eq.noise_reduction = v as f32;
+        }
+        if let Some(v) = eq.get("windowDb").and_then(|v| v.as_f64()) {
+            cfg.eq.window_db = v as f32;
+        }
+        if let Some(v) = eq.get("gamma").and_then(|v| v.as_f64()) {
+            cfg.eq.gamma = v as f32;
+        }
+        if let Some(v) = eq.get("attack").and_then(|v| v.as_f64()) {
+            cfg.eq.attack = v as f32;
+        }
+        if let Some(v) = eq.get("decay").and_then(|v| v.as_f64()) {
+            cfg.eq.decay = v as f32;
+        }
     }
     storage::save_config(&cfg).map_err(|e| format!("save config: {}", e))
 }
@@ -114,8 +168,13 @@ pub fn get_hotkey() -> IpcResult<String> {
 #[tauri::command]
 pub fn set_hotkey(_label: String) -> IpcResult<()> {
     let mut cfg: Config = storage::load_config().unwrap_or_default();
-    cfg.hotkey = _label;
-    storage::save_config(&cfg).map_err(|e| format!("save config: {}", e))
+    cfg.hotkey = _label.clone();
+    storage::save_config(&cfg).map_err(|e| format!("save config: {}", e))?;
+
+    // Update PTT listener preset_mode when hotkey changes
+    crate::runtime::update_preset_mode(&_label).map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 /// Show the pill HUD at the bottom center.

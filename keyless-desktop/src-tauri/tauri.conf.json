@@ -15,21 +15,14 @@
       {
         "label": "popover",
         "title": "keyless",
-        "width": 380,
-        "height": 320,
+        "width": 280,
+        "height": 520,
         "decorations": false,
         "transparent": true,
         "resizable": false,
         "visible": false,
-        "alwaysOnTop": true
-      },
-      {
-        "label": "settings",
-        "title": "keyless settings",
-        "width": 720,
-        "height": 560,
-        "resizable": true,
-        "visible": false
+        "alwaysOnTop": true,
+        "skipTaskbar": true
       },
       {
         "label": "pill",

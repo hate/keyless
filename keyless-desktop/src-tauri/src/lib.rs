@@ -33,16 +33,32 @@ fn run_inner() -> KeylessResult<()> {
             let _ = tray::show_popover(app.app_handle());
         }))
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::ActivationPolicy;
+                // Default: no Dock icon (true menubar app feel). Can be toggled from Settings.
+                let _ = app.set_activation_policy(ActivationPolicy::Accessory);
+            }
             let _ = tray::init(app);
             let _ = runtime::init(app.handle().clone());
+
+            // Hide popover when it loses focus (click outside)
+            if let Some(popover) = app.get_webview_window("popover") {
+                let popover_clone = popover.clone();
+                popover.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(false) = event {
+                        let _ = popover_clone.hide();
+                    }
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             bridge::get_status,
-            bridge::start_listening,
-            bridge::stop_listening,
             bridge::list_sinks,
             bridge::select_sink,
+            bridge::list_input_devices,
             bridge::get_config,
             bridge::update_config,
             bridge::get_hotkey,

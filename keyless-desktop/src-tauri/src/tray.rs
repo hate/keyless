@@ -4,7 +4,7 @@
 //! anchored near the menu bar area.
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, Submenu};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
-use tauri::{App, AppHandle, Manager};
+use tauri::{App, AppHandle, Emitter, Manager};
 use tauri_plugin_positioner::{Position, WindowExt};
 
 use keyless_core::error::{KeylessError, KeylessResult};
@@ -80,9 +80,19 @@ pub fn init(app: &mut App) -> KeylessResult<()> {
     let _tray = TrayIconBuilder::new()
         .icon(icon)
         .menu(&menu)
-        .on_tray_icon_event(|app, event| {
-            if let TrayIconEvent::Click { .. } = event {
-                let _ = toggle_popover(app.app_handle());
+        .show_menu_on_left_click(false)
+        .on_tray_icon_event(|tray, event| {
+            // Track tray position for positioner plugin
+            tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
+
+            // Handle clicks: left-click toggles popover, right-click shows menu automatically
+            if let TrayIconEvent::Click {
+                button: tauri::tray::MouseButton::Left,
+                button_state: tauri::tray::MouseButtonState::Up,
+                ..
+            } = event
+            {
+                let _ = toggle_popover(tray.app_handle());
             }
         })
         .on_menu_event(|app, event| {
@@ -98,9 +108,17 @@ pub fn init(app: &mut App) -> KeylessResult<()> {
                     let _ = crate::bridge::select_sink("file".to_string());
                 }
                 "settings" => {
-                    if let Some(win) = app.get_webview_window("settings") {
+                    // Show popover and navigate to settings
+                    let app_handle = app.app_handle().clone();
+                    if let Some(win) = app_handle.get_webview_window("popover") {
+                        let _ = win.move_window(Position::TrayCenter);
                         let _ = win.show();
                         let _ = win.set_focus();
+                        // Emit after showing so window is ready to receive events
+                        std::thread::spawn(move || {
+                            std::thread::sleep(std::time::Duration::from_millis(100));
+                            let _ = app_handle.emit("navigate", "settings");
+                        });
                     }
                 }
                 "quit" => app.exit(0),
@@ -137,8 +155,15 @@ pub fn show_popover(app: &AppHandle) -> KeylessResult<()> {
     let Some(win) = app.get_webview_window("popover") else {
         return Err(KeylessError::System("missing popover window".into()));
     };
-    // approximate anchoring (top-right); refine later with per-platform anchor
-    let _ = win.move_window(Position::TopRight);
+    // Reset page to current status before showing to avoid any visible page flash
+    let dest = if crate::runtime::is_listening() {
+        "listening"
+    } else {
+        "idle"
+    };
+    let _ = app.emit("navigate", dest);
+    // Anchor to tray icon (positioner tracks tray position via on_tray_event)
+    let _ = win.move_window(Position::TrayCenter);
     let _ = win.show();
     let _ = win.set_focus();
     Ok(())

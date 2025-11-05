@@ -1,22 +1,66 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import "./index.css";
 import "./App.css";
+import IdleView, { Arrow } from "./views/Idle";
+import ListeningView from "./views/Listening";
+import SettingsView from "./views/Settings";
+import { useTauriStreams } from "./hooks/useTauriStreams";
+import { listen } from "@tauri-apps/api/event";
 
 function Popover() {
-	return (
-		<div className="popover">
-			<div className="title">idle</div>
-			<div className="hint">hold your hotkey to start listening</div>
-		</div>
-	);
-}
+	const { status, eqBars, transcript } = useTauriStreams();
+	const [showSettings, setShowSettings] = useState<boolean>(false);
+	// Allow Rust to request navigation (e.g., tray menu "settings")
+	useEffect(() => {
+		const w = globalThis as any;
+		if (!w.__TAURI_INTERNALS__) return;
+		let un: (() => void) | undefined;
+		listen<string>("navigate", (e) => {
+			const dest = String(e.payload || "").toLowerCase();
+			if (dest === "settings") {
+				setShowSettings(true);
+			}
+			if (dest === "idle" || dest === "listening") {
+				setShowSettings(false);
+			}
+		}).then((u) => (un = u)).catch(() => { });
+		return () => {
+			if (un) un();
+		};
+	}, []);
 
-function Settings() {
+	// Reset back to status page when the window is hidden
+	useEffect(() => {
+		const w = globalThis as any;
+		let un: (() => void) | undefined;
+		if (w.__TAURI_INTERNALS__) {
+			// Reset on blur so next show starts at main view (unless navigate event overrides)
+			listen("tauri://blur", () => {
+				setShowSettings(false);
+			}).then((u) => (un = u)).catch(() => { });
+		}
+		const onVis = () => {
+			if (document.visibilityState === "hidden") setShowSettings(false);
+		};
+		document.addEventListener("visibilitychange", onVis);
+		return () => {
+			if (un) un();
+			document.removeEventListener("visibilitychange", onVis);
+		};
+	}, [status]);
+
 	return (
-		<div className="settings">
-			<div className="title">settings</div>
-			<div className="hint">this is a placeholder. sinks and options will appear here.</div>
-		</div>
+		<>
+			<Arrow />
+			{showSettings ? (
+				<SettingsView onBack={() => setShowSettings(false)} />
+			) : status === "listening" ? (
+				<ListeningView bars={eqBars} transcript={transcript} onOpenSettings={() => setShowSettings(true)} />
+			) : (
+				<IdleView onOpenSettings={() => setShowSettings(true)} />
+			)}
+		</>
 	);
 }
 
@@ -37,9 +81,8 @@ export default function App() {
 	}, []);
 
 	const View = useMemo(() => {
-		if (label === "settings") return Settings;
 		if (label === "pill") return Pill;
-		return Popover;
+		return Popover; // settings is now inside popover
 	}, [label]);
 
 	return <View />;
