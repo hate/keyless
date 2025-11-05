@@ -2,7 +2,7 @@
 //!
 //! Provides helpers to initialize the tray and to toggle/show windows
 //! anchored near the menu bar area.
-use tauri::menu::{Menu, MenuItem, Submenu};
+use tauri::menu::{CheckMenuItem, Menu, MenuItem, Submenu};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Manager};
 use tauri_plugin_positioner::{Position, WindowExt};
@@ -14,14 +14,42 @@ use keyless_core::error::{KeylessError, KeylessResult};
 /// Left-click toggles the `popover` window anchored near the menu bar.
 pub fn init(app: &mut App) -> KeylessResult<()> {
     let handle = app.handle();
-    // Build tray menu with output submenu
-    let sink_paste = MenuItem::with_id(handle, "sink_paste", "paste", true, None::<&str>)
-        .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
-    let sink_clipboard =
-        MenuItem::with_id(handle, "sink_clipboard", "clipboard", true, None::<&str>)
-            .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
-    let sink_file = MenuItem::with_id(handle, "sink_file", "file", true, None::<&str>)
-        .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+
+    // Read current sink from config to set checkmarks
+    let cfg = keyless_core::config::storage::load_config().unwrap_or_default();
+    let current_is_paste = matches!(cfg.output_mode, keyless_core::config::OutputMode::Paste);
+    let current_is_clipboard =
+        matches!(cfg.output_mode, keyless_core::config::OutputMode::Clipboard);
+    let current_is_file = matches!(cfg.output_mode, keyless_core::config::OutputMode::File(_));
+
+    // Build tray menu with output submenu and checkmarks
+    let sink_paste = CheckMenuItem::with_id(
+        handle,
+        "sink_paste",
+        "paste",
+        true,
+        current_is_paste,
+        None::<&str>,
+    )
+    .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+    let sink_clipboard = CheckMenuItem::with_id(
+        handle,
+        "sink_clipboard",
+        "clipboard",
+        true,
+        current_is_clipboard,
+        None::<&str>,
+    )
+    .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+    let sink_file = CheckMenuItem::with_id(
+        handle,
+        "sink_file",
+        "file",
+        true,
+        current_is_file,
+        None::<&str>,
+    )
+    .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
 
     let output_submenu = Submenu::with_items(
         handle,
