@@ -1,7 +1,10 @@
 [advisories]
-# Ignore unmaintained advisory for paste crate (transitive dependency via candle-core)
-# The crate is archived but still functional, and candle-core uses it.
-ignore = [{ id = "RUSTSEC-2024-0436" }]
+# Ignore advisories that are either not relevant to macOS build or acceptable transients
+ignore = [
+    { id = "RUSTSEC-2024-0436" },
+    { id = "RUSTSEC-2024-0429" }, # glib unsound VariantStrIter (GTK3 path, not used on macOS)
+]
+unmaintained = "workspace"
 
 [bans]
 # Warn on multiple versions of the same crate
@@ -18,6 +21,7 @@ allow-git = []
 allow = [
     "MIT",
     "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
     "BSD-2-Clause",
     "BSD-3-Clause",
     "0BSD",
