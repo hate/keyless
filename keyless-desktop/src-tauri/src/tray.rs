@@ -2,7 +2,7 @@
 //!
 //! Provides helpers to initialize the tray and to toggle/show windows
 //! anchored near the menu bar area.
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, Submenu};
 use tauri::tray::{TrayIconBuilder, TrayIconEvent};
 use tauri::{App, AppHandle, Manager};
 use tauri_plugin_positioner::{Position, WindowExt};
@@ -14,44 +14,43 @@ use keyless_core::error::{KeylessError, KeylessResult};
 /// Left-click toggles the `popover` window anchored near the menu bar.
 pub fn init(app: &mut App) -> KeylessResult<()> {
     let handle = app.handle();
-    // Build tray menu (settings, quit). The select-output submenu will be added later.
-    let menu = Menu::new(handle).map_err(|e| KeylessError::System(format!("menu error: {e}")))?;
-    let sink_paste = MenuItem::with_id(
+    // Build tray menu with output submenu
+    let sink_paste = MenuItem::with_id(handle, "sink_paste", "paste", true, None::<&str>)
+        .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+    let sink_clipboard =
+        MenuItem::with_id(handle, "sink_clipboard", "clipboard", true, None::<&str>)
+            .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+    let sink_file = MenuItem::with_id(handle, "sink_file", "file", true, None::<&str>)
+        .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+
+    let output_submenu = Submenu::with_items(
         handle,
-        "sink_paste",
-        "select output: paste",
+        "output",
         true,
-        None::<&str>,
+        &[&sink_paste, &sink_clipboard, &sink_file],
     )
-    .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
-    let sink_clipboard = MenuItem::with_id(
-        handle,
-        "sink_clipboard",
-        "select output: clipboard",
-        true,
-        None::<&str>,
-    )
-    .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
-    let sink_file = MenuItem::with_id(
-        handle,
-        "sink_file",
-        "select output: file",
-        true,
-        None::<&str>,
-    )
-    .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
+    .map_err(|e| KeylessError::System(format!("submenu error: {e}")))?;
+
     let settings = MenuItem::with_id(handle, "settings", "settings", true, None::<&str>)
         .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
     let quit = MenuItem::with_id(handle, "quit", "quit", true, None::<&str>)
         .map_err(|e| KeylessError::System(format!("menu item error: {e}")))?;
-    let _ = menu.append(&sink_paste);
-    let _ = menu.append(&sink_clipboard);
-    let _ = menu.append(&sink_file);
+
+    let menu = Menu::new(handle).map_err(|e| KeylessError::System(format!("menu error: {e}")))?;
+    let _ = menu.append(&output_submenu);
     let _ = menu.append(&settings);
     let _ = menu.append(&quit);
 
+    // Load and decode tray icon (64x64 for better clarity on retina displays)
+    let icon_bytes = include_bytes!("../icons/64x64.png");
+    let img = image::load_from_memory(icon_bytes)
+        .map_err(|e| KeylessError::System(format!("decode tray icon: {e}")))?;
+    let rgba = img.to_rgba8();
+    let (w, h) = (rgba.width(), rgba.height());
+    let icon = tauri::image::Image::new_owned(rgba.into_raw(), w, h);
+
     let _tray = TrayIconBuilder::new()
-        .icon_as_template(true)
+        .icon(icon)
         .menu(&menu)
         .on_tray_icon_event(|app, event| {
             if let TrayIconEvent::Click { .. } = event {
