@@ -45,5 +45,3 @@ jobs:
       - name: Build desktop (debug for PRs)
         if: github.event_name == 'pull_request'
         run: pnpm -C keyless-desktop tauri build --debug
-
-      # No artifact upload on PRs; this job is a build-only smoke check

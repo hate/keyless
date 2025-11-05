@@ -1,0 +1,60 @@
+name: desktop-release
+
+on:
+    push:
+        tags: ["v*"]
+
+concurrency:
+    group: desktop-release-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    build:
+        runs-on: macos-latest
+        permissions:
+            contents: write
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v5
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "lts/*"
+                  cache: "pnpm"
+                  cache-dependency-path: keyless-desktop/pnpm-lock.yaml
+
+            - name: Setup Rust
+              uses: actions-rust-lang/setup-rust-toolchain@v1
+              with:
+                  toolchain: stable
+                  components: clippy, rustfmt
+
+            - name: Cache cargo
+              uses: Swatinem/rust-cache@v2
+
+            - name: Install frontend deps
+              run: pnpm -C keyless-desktop install --frozen-lockfile
+
+            - name: Build desktop (release)
+              run: pnpm -C keyless-desktop tauri build
+
+            - name: Upload desktop artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: keyless-desktop-macos-${{ github.ref_name }}
+                  path: |
+                      keyless-desktop/src-tauri/target/**/bundle/**
+
+            - name: Create GitHub Release and upload assets
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: |
+                      keyless-desktop/src-tauri/target/**/bundle/**
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
