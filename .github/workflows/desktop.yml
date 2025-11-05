@@ -1,6 +1,8 @@
 name: desktop
 
 on:
+  push:
+    branches: [main, desktop]
   pull_request:
     branches: [main, desktop]
   workflow_dispatch:
@@ -42,6 +44,5 @@ jobs:
       - name: Install frontend deps
         run: pnpm -C keyless-desktop install --frozen-lockfile
 
-      - name: Build desktop (debug for PRs)
-        if: github.event_name == 'pull_request'
+      - name: Build desktop (debug)
         run: pnpm -C keyless-desktop tauri build --debug
