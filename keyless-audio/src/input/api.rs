@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 
+use cpal::traits::StreamTrait;
 use cpal::traits::{DeviceTrait, HostTrait};
 use keyless_core::error::KeylessResult;
 
@@ -98,6 +99,85 @@ pub fn list_input_devices() -> keyless_core::error::KeylessResult<Vec<InputDevic
         });
     }
     Ok(out)
+}
+
+/// Probe whether we can actually open and play a microphone stream (permission + availability).
+/// Returns `true` if a CPAL input stream can be created and started.
+pub fn can_record() -> bool {
+    eprintln!("[can_record] Probing microphone access...");
+    let host = cpal::default_host();
+    let Some(device) = host.default_input_device() else {
+        eprintln!("[can_record] No default input device found");
+        return false;
+    };
+
+    if let Ok(name) = device.name() {
+        eprintln!("[can_record] Found device: {}", name);
+    }
+
+    let Ok(cfg) = device.default_input_config() else {
+        eprintln!("[can_record] Could not get device config");
+        return false;
+    };
+
+    fn try_build<T>(device: &cpal::Device, config: cpal::StreamConfig) -> bool
+    where
+        T: cpal::Sample + cpal::SizedSample,
+    {
+        use std::sync::{Arc, Mutex};
+
+        // Track if we actually receive audio data (proves permission is granted)
+        let data_received = Arc::new(Mutex::new(false));
+        let data_received_clone = Arc::clone(&data_received);
+
+        let builder = device.build_input_stream(
+            &config,
+            move |_data: &[T], _| {
+                // If this callback fires, we have real microphone access
+                *data_received_clone.lock().unwrap() = true;
+            },
+            |e| {
+                eprintln!("[can_record] Stream error: {}", e);
+            },
+            None,
+        );
+
+        match builder {
+            Ok(stream) => {
+                if let Err(e) = stream.play() {
+                    eprintln!("[can_record] Stream play failed: {}", e);
+                    return false;
+                }
+
+                // Wait briefly to see if we receive any audio data
+                std::thread::sleep(std::time::Duration::from_millis(100));
+
+                let received = *data_received.lock().unwrap();
+                eprintln!("[can_record] Stream played, data received: {}", received);
+
+                // Return true only if we actually received audio data
+                received
+            }
+            Err(e) => {
+                eprintln!("[can_record] Stream build failed: {}", e);
+                false
+            }
+        }
+    }
+
+    let sc: cpal::StreamConfig = cfg.config().clone();
+    let result = match cfg.sample_format() {
+        cpal::SampleFormat::I16 => try_build::<i16>(&device, sc),
+        cpal::SampleFormat::U16 => try_build::<u16>(&device, sc),
+        cpal::SampleFormat::F32 => try_build::<f32>(&device, sc),
+        _ => {
+            eprintln!("[can_record] Unsupported sample format");
+            false
+        }
+    };
+
+    eprintln!("[can_record] Final result: {}", result);
+    result
 }
 
 /// Get the system default input device as an opaque handle.
