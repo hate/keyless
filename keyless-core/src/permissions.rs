@@ -9,7 +9,9 @@
 #[cfg(target_os = "macos")]
 pub fn has_accessibility_permission() -> bool {
     // SAFETY: Calling a system function that returns a boolean-like value.
-    unsafe { AXIsProcessTrusted() != 0 }
+    // Using AXIsProcessTrustedWithOptions(NULL) instead of AXIsProcessTrusted()
+    // to get a fresh, non-cached result. This is critical for accurate permission checks.
+    unsafe { AXIsProcessTrustedWithOptions(std::ptr::null()) != 0 }
 }
 
 /// Check if the process has macOS Accessibility permission.
@@ -77,6 +79,7 @@ pub fn gather_permission_warnings(
 #[cfg(target_os = "macos")]
 #[link(name = "ApplicationServices", kind = "framework")]
 unsafe extern "C" {
-    /// AXIsProcessTrusted() -> Boolean (typedef unsigned char)
-    fn AXIsProcessTrusted() -> u8;
+    /// AXIsProcessTrustedWithOptions(CFDictionaryRef) -> Boolean (typedef unsigned char)
+    /// Pass NULL for a fresh, non-cached check.
+    fn AXIsProcessTrustedWithOptions(options: *const std::ffi::c_void) -> u8;
 }
