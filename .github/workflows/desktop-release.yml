@@ -66,16 +66,18 @@ jobs:
         shell: bash
         run: |
           mkdir -p bundle-artifacts
-          # Find and copy all installer files from workspace root target (Tauri outputs here in workspaces)
-          find target -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} bundle-artifacts/ \;
-          # Also check keyless-desktop/src-tauri/target (fallback)
-          find keyless-desktop/src-tauri/target -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} bundle-artifacts/ \;
-          # Check specific bundle directories
+          # Copy installer files from the bundle directory (Tauri outputs to target/${{ matrix.target }}/release/bundle/)
           if [ -d "target/${{ matrix.target }}/release/bundle" ]; then
-            find target/${{ matrix.target }}/release/bundle -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} bundle-artifacts/ \;
-          fi
-          if [ -d "target/release/bundle" ]; then
-            find target/release/bundle -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} bundle-artifacts/ \;
+            # Copy DMG files (macOS)
+            cp target/${{ matrix.target }}/release/bundle/dmg/*.dmg bundle-artifacts/ 2>/dev/null || true
+            # Copy MSI files (Windows)
+            cp target/${{ matrix.target }}/release/bundle/msi/*.msi bundle-artifacts/ 2>/dev/null || true
+            # Copy DEB files (Linux)
+            cp target/${{ matrix.target }}/release/bundle/deb/*.deb bundle-artifacts/ 2>/dev/null || true
+            # Copy RPM files (Linux)
+            cp target/${{ matrix.target }}/release/bundle/rpm/*.rpm bundle-artifacts/ 2>/dev/null || true
+            # Copy AppImage files (Linux)
+            cp target/${{ matrix.target }}/release/bundle/appimage/*.AppImage bundle-artifacts/ 2>/dev/null || true
           fi
           ls -lh bundle-artifacts/ || echo "No bundle artifacts found"
 
