@@ -142,6 +142,20 @@ fn wait_for_events() {
     thread::sleep(Duration::from_millis(100));
 }
 
+fn wait_for_event(publisher: &TestPublisher, event_name: &str, max_wait_ms: u64) {
+    let start = std::time::Instant::now();
+    loop {
+        let recorded = publisher.recorded();
+        if recorded.iter().any(|(name, _)| name == event_name) {
+            return;
+        }
+        if start.elapsed().as_millis() > max_wait_ms as u128 {
+            panic!("timeout waiting for event: {}", event_name);
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
 #[test]
 fn start_download_updates_status_and_emits_events() {
     let publisher = TestPublisher::new();
@@ -165,7 +179,8 @@ fn start_download_updates_status_and_emits_events() {
         Ok(_) => {}
         Err(e) => panic!("unexpected error: {e}"),
     }
-    wait_for_events();
+    // Wait for the download_complete event to ensure the download is fully processed
+    wait_for_event(&publisher, "download_complete", 1000);
 
     // status reflects completed download
     let status = match service.status("openai/whisper-tiny") {
