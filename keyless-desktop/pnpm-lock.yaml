@@ -14,9 +14,15 @@ importers:
       '@tauri-apps/plugin-autostart':
         specifier: ^2
         version: 2.5.1
+      '@tauri-apps/plugin-dialog':
+        specifier: ^2
+        version: 2.4.2
       '@tauri-apps/plugin-opener':
         specifier: ^2
         version: 2.5.2
+      '@tauri-apps/plugin-positioner':
+        specifier: ^2.3.1
+        version: 2.3.1
       '@tauri-apps/plugin-store':
         specifier: ^2
         version: 2.4.1
@@ -36,6 +42,9 @@ importers:
       '@testing-library/react':
         specifier: ^16.0.0
         version: 16.3.0(@testing-library/dom@10.4.1)(@types/react-dom@19.2.2(@types/react@19.2.2))(@types/react@19.2.2)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@testing-library/user-event':
+        specifier: ^14.6.1
+        version: 14.6.1(@testing-library/dom@10.4.1)
       '@types/react':
         specifier: ^19.1.8
         version: 19.2.2
@@ -714,8 +723,14 @@ packages:
   '@tauri-apps/plugin-autostart@2.5.1':
     resolution: {integrity: sha512-zS/xx7yzveCcotkA+8TqkI2lysmG2wvQXv2HGAVExITmnFfHAdj1arGsbbfs3o6EktRHf6l34pJxc3YGG2mg7w==}
 
+  '@tauri-apps/plugin-dialog@2.4.2':
+    resolution: {integrity: sha512-lNIn5CZuw8WZOn8zHzmFmDSzg5zfohWoa3mdULP0YFh/VogVdMVWZPcWSHlydsiJhRQYaTNSYKN7RmZKE2lCYQ==}
+
   '@tauri-apps/plugin-opener@2.5.2':
     resolution: {integrity: sha512-ei/yRRoCklWHImwpCcDK3VhNXx+QXM9793aQ64YxpqVF0BDuuIlXhZgiAkc15wnPVav+IbkYhmDJIv5R326Mew==}
+
+  '@tauri-apps/plugin-positioner@2.3.1':
+    resolution: {integrity: sha512-9JiNO3tpHhz91VUG/sncGha4CL1qQHlftnfkwWJIquAR7rhLA9GUdW1oIdZLbNswNzkkd9qVywFmh658eFEL2Q==}
 
   '@tauri-apps/plugin-store@2.4.1':
     resolution: {integrity: sha512-ckGSEzZ5Ii4Hf2D5x25Oqnm2Zf9MfDWAzR+volY0z/OOBz6aucPKEY0F649JvQ0Vupku6UJo7ugpGRDOFOunkA==}
@@ -742,6 +757,12 @@ packages:
         optional: true
       '@types/react-dom':
         optional: true
+
+  '@testing-library/user-event@14.6.1':
+    resolution: {integrity: sha512-vq7fv0rnt+QTXgPxr5Hjc210p6YKq2kmdziLgnsZGgLJ9e6VAShx1pACLuRjd/AS/sr7phAR58OIIpf0LlmQNw==}
+    engines: {node: '>=12', npm: '>=6'}
+    peerDependencies:
+      '@testing-library/dom': '>=7.21.4'
 
   '@types/aria-query@5.0.4':
     resolution: {integrity: sha512-rfT93uj5s0PRL7EzccGMs3brplhcrghnDoV26NqKhCAS1hVo+WdNsPvE/yb6ilfr5hi2MEk6d5EWJTKdxg8jVw==}
@@ -2204,7 +2225,15 @@ snapshots:
     dependencies:
       '@tauri-apps/api': 2.9.0
 
+  '@tauri-apps/plugin-dialog@2.4.2':
+    dependencies:
+      '@tauri-apps/api': 2.9.0
+
   '@tauri-apps/plugin-opener@2.5.2':
+    dependencies:
+      '@tauri-apps/api': 2.9.0
+
+  '@tauri-apps/plugin-positioner@2.3.1':
     dependencies:
       '@tauri-apps/api': 2.9.0
 
@@ -2241,6 +2270,10 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.2
       '@types/react-dom': 19.2.2(@types/react@19.2.2)
+
+  '@testing-library/user-event@14.6.1(@testing-library/dom@10.4.1)':
+    dependencies:
+      '@testing-library/dom': 10.4.1
 
   '@types/aria-query@5.0.4': {}
 
