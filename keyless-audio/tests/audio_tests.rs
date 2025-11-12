@@ -3,7 +3,7 @@
 use keyless_audio::{AudioConfig, AudioInput, CpalAudioInput};
 
 #[test]
-fn test_audio_config_creation() {
+fn audio_config_creation() {
     let config = AudioConfig {
         sample_hz: 16000,
         frame_samples: 1600,
@@ -14,7 +14,7 @@ fn test_audio_config_creation() {
 }
 
 #[test]
-fn test_audio_config_clone() {
+fn audio_config_clone() {
     let config = AudioConfig {
         sample_hz: 48000,
         frame_samples: 4800,
@@ -26,7 +26,7 @@ fn test_audio_config_clone() {
 }
 
 #[test]
-fn test_cpal_audio_input_new() {
+fn cpal_audio_input_new() {
     // Creating a new input should succeed without hardware
     let _input = CpalAudioInput::new();
 
@@ -35,14 +35,14 @@ fn test_cpal_audio_input_new() {
 }
 
 #[test]
-fn test_cpal_audio_input_getters_before_start() {
+fn cpal_audio_input_getters_before_start() {
     let input = CpalAudioInput::new();
     assert!(input.chosen_sample_rate_hz().is_none());
     assert!(input.chosen_frame_samples().is_none());
 }
 
 #[test]
-fn test_cpal_audio_input_stop_when_not_started() {
+fn cpal_audio_input_stop_when_not_started() {
     let mut input = CpalAudioInput::new();
 
     // Stopping when not started should return an error
@@ -55,7 +55,7 @@ fn test_cpal_audio_input_stop_when_not_started() {
 }
 
 #[test]
-fn test_audio_config_various_sample_rates() {
+fn audio_config_various_sample_rates() {
     let configs = vec![
         (16000, 1600), // 100ms at 16k
         (44100, 4410), // 100ms at 44.1k

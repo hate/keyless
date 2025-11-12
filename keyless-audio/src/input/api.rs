@@ -133,8 +133,11 @@ pub fn can_record() -> bool {
         let builder = device.build_input_stream(
             &config,
             move |_data: &[T], _| {
-                // If this callback fires, we have real microphone access
-                *data_received_clone.lock().unwrap() = true;
+                // If this callback fires, we have real microphone access.
+                // Avoid panicking on poisoned mutex; best-effort set to true.
+                if let Ok(mut guard) = data_received_clone.lock() {
+                    *guard = true;
+                }
             },
             |e| {
                 eprintln!("[can_record] Stream error: {}", e);
@@ -152,7 +155,13 @@ pub fn can_record() -> bool {
                 // Wait briefly to see if we receive any audio data
                 std::thread::sleep(std::time::Duration::from_millis(100));
 
-                let received = *data_received.lock().unwrap();
+                let received = match data_received.lock() {
+                    Ok(guard) => *guard,
+                    Err(_) => {
+                        // Treat as not received if lock is poisoned; conservative false.
+                        false
+                    }
+                };
                 eprintln!("[can_record] Stream played, data received: {}", received);
 
                 // Return true only if we actually received audio data
