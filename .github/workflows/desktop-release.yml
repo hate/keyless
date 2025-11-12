@@ -66,14 +66,16 @@ jobs:
         shell: bash
         run: |
           mkdir -p bundle-artifacts
-          # Find and copy all installer files
+          # Find and copy all installer files from workspace root target (Tauri outputs here in workspaces)
+          find target -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} bundle-artifacts/ \;
+          # Also check keyless-desktop/src-tauri/target (fallback)
           find keyless-desktop/src-tauri/target -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} bundle-artifacts/ \;
-          # Also try the expected bundle directory structure
-          if [ -d "keyless-desktop/src-tauri/target/${{ matrix.target }}/release/bundle" ]; then
-            cp -r keyless-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/* bundle-artifacts/ 2>/dev/null || true
+          # Check specific bundle directories
+          if [ -d "target/${{ matrix.target }}/release/bundle" ]; then
+            find target/${{ matrix.target }}/release/bundle -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} bundle-artifacts/ \;
           fi
-          if [ -d "keyless-desktop/src-tauri/target/release/bundle" ]; then
-            cp -r keyless-desktop/src-tauri/target/release/bundle/* bundle-artifacts/ 2>/dev/null || true
+          if [ -d "target/release/bundle" ]; then
+            find target/release/bundle -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} bundle-artifacts/ \;
           fi
           ls -lh bundle-artifacts/ || echo "No bundle artifacts found"
 
