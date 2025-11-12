@@ -2,9 +2,11 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for all windows",
-  "windows": ["popover", "pill"],
+  "windows": ["popover", "overlay", "toast"],
   "permissions": [
     "core:default",
+    "dialog:default",
+    "dialog:allow-open",
     "opener:default"
   ]
 }

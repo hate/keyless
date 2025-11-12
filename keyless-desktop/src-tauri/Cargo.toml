@@ -1,6 +1,6 @@
 [package]
 name = "keyless-desktop"
-version = "0.1.0"
+version = "0.3.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2024"
@@ -24,16 +24,16 @@ tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-store = "2"
 tauri-plugin-autostart = "2"
+tauri-plugin-dialog = "2"
 tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
 tauri-plugin-single-instance = "2"
+tauri-plugin-devtools = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 image = "0.25"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 thiserror = "1"
-
-# macOS keyboard event tap for precise key up/down when needed
-rdev = { version = "0.5", optional = true }
+cpal = "0.15"
 
 # workspace crates
 keyless-core = { path = "../../keyless-core" }
@@ -42,3 +42,7 @@ keyless-audio = { path = "../../keyless-audio" }
 keyless-output = { path = "../../keyless-output" }
 keyless-whisper = { path = "../../keyless-whisper" }
 keyless-logging = { path = "../../keyless-logging" }
+keyless-models = { path = "../../keyless-models" }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.24"
