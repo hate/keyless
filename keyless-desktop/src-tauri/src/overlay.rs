@@ -5,19 +5,11 @@ use tauri::{
 };
 
 /// Width of the recording overlay indicator in logical pixels.
-const OVERLAY_WIDTH: f64 = 80.0;
+/// Increased to account for borders, padding, and animation overflow.
+const OVERLAY_WIDTH: f64 = 100.0;
 /// Height of the recording overlay indicator in logical pixels.
-const OVERLAY_HEIGHT: f64 = 36.0;
-
-/// Bottom margin for the overlay on macOS.
-#[cfg(target_os = "macos")]
-const OVERLAY_BOTTOM_OFFSET: f64 = 4.0;
-/// Bottom margin for the overlay on Windows and Linux.
-#[cfg(any(target_os = "windows", target_os = "linux"))]
-const OVERLAY_BOTTOM_OFFSET: f64 = 12.0;
-/// Bottom margin for the overlay on other platforms.
-#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-const OVERLAY_BOTTOM_OFFSET: f64 = 24.0;
+/// Increased to account for borders and animation overflow.
+const OVERLAY_HEIGHT: f64 = 50.0;
 
 /// Width of the toast notification window in logical pixels.
 const TOAST_WIDTH: f64 = 400.0;
@@ -109,7 +101,8 @@ fn bottom_center_on_primary(app: &AppHandle) -> Option<(f64, f64)> {
             // Calculate usable height (work area height minus overlay height).
             let usable_height = (work_height - OVERLAY_HEIGHT).max(0.0);
             // Position near bottom with platform-specific offset.
-            let desired_y = work_y + (usable_height - OVERLAY_BOTTOM_OFFSET).max(0.0);
+            let bottom_offset = crate::platform::overlay_bottom_offset();
+            let desired_y = work_y + (usable_height - bottom_offset).max(0.0);
 
             // Define bounds for clamping (ensure overlay stays within work area).
             let min_x = work_x;
@@ -139,13 +132,16 @@ fn bottom_center_on_primary(app: &AppHandle) -> Option<(f64, f64)> {
 
 /// Create the recording overlay window at app startup (initially hidden).
 pub fn create_overlay(app: &AppHandle) {
+    eprintln!("[overlay] create_overlay called");
     // Check if overlay window already exists (idempotent).
     if app.get_webview_window("overlay").is_some() {
+        eprintln!("[overlay] overlay window already exists");
         return;
     }
 
     // Calculate bottom-center position on primary monitor.
     if let Some((x, y)) = bottom_center_on_primary(app) {
+        eprintln!("[overlay] creating overlay at position ({}, {})", x, y);
         // Build and create the overlay window.
         match build_overlay_window(
             app,
@@ -157,6 +153,7 @@ pub fn create_overlay(app: &AppHandle) {
             },
         ) {
             Ok(window) => {
+                eprintln!("[overlay] overlay window created successfully");
                 // Configure window to not steal focus or intercept mouse events.
                 // This ensures the overlay doesn't interfere with user interaction.
                 let _ = window.set_focusable(false);
@@ -167,17 +164,21 @@ pub fn create_overlay(app: &AppHandle) {
                 eprintln!("[overlay] failed to create overlay window: {err}");
             }
         }
+    } else {
+        eprintln!("[overlay] failed to get monitor position");
     }
 }
 
 /// Show the recording overlay indicator and update its position.
 pub fn show_overlay(app: &AppHandle) {
+    eprintln!("[overlay] show_overlay called");
     // Calculate position before moving to main thread (position calculation can happen on any thread).
     let handle = app.clone();
     let position = bottom_center_on_primary(app);
     // Window operations must happen on the main thread (Tauri requirement).
     let _ = app.run_on_main_thread(move || {
         if let Some(window) = handle.get_webview_window("overlay") {
+            eprintln!("[overlay] showing overlay window");
             // Update position if we got a valid position (handles monitor changes).
             if let Some((x, y)) = position {
                 let _ = window.set_position(Position::Logical(LogicalPosition { x, y }));
@@ -187,7 +188,13 @@ pub fn show_overlay(app: &AppHandle) {
             let _ = window.set_focusable(false);
             let _ = window.set_ignore_cursor_events(true);
             // Show the overlay window.
-            let _ = window.show();
+            if let Err(e) = window.show() {
+                eprintln!("[overlay] failed to show overlay window: {e}");
+            } else {
+                eprintln!("[overlay] overlay window shown successfully");
+            }
+        } else {
+            eprintln!("[overlay] ERROR: overlay window not found when trying to show");
         }
     });
 }
@@ -272,16 +279,24 @@ pub fn create_toast(app: &AppHandle) {
 
 /// Show the toast notification window.
 pub fn show_toast(app: &AppHandle) {
+    eprintln!("[toast] show_toast called");
     let handle = app.clone();
     // Window operations must happen on the main thread (Tauri requirement).
     let _ = app.run_on_main_thread(move || {
         if let Some(window) = handle.get_webview_window("toast") {
+            eprintln!("[toast] showing toast window");
             // Ensure toast stays on top and doesn't interfere with user interaction.
             let _ = window.set_always_on_top(true);
             let _ = window.set_focusable(false);
             let _ = window.set_ignore_cursor_events(true);
             // Show the toast window.
-            let _ = window.show();
+            if let Err(e) = window.show() {
+                eprintln!("[toast] failed to show toast window: {e}");
+            } else {
+                eprintln!("[toast] toast window shown successfully");
+            }
+        } else {
+            eprintln!("[toast] ERROR: toast window not found when trying to show");
         }
     });
 }

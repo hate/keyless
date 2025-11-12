@@ -56,6 +56,8 @@ use tauri::{Emitter, Manager};
 mod commands;
 /// Overlay window management for recording indicators.
 mod overlay;
+/// Platform-specific detection and utilities.
+mod platform;
 /// Popover suppression state management.
 mod popover;
 /// Background runtime thread for audio pipeline and PTT handling.
@@ -91,25 +93,7 @@ fn run_inner() -> KeylessResult<()> {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
-            {
-                #[cfg(target_os = "macos")]
-                {
-                    tauri_plugin_autostart::MacosLauncher::LaunchAgent
-                }
-                #[cfg(target_os = "windows")]
-                {
-                    tauri_plugin_autostart::WindowsLauncher::Service
-                }
-                #[cfg(target_os = "linux")]
-                {
-                    tauri_plugin_autostart::LinuxLauncher::Systemd
-                }
-                #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-                {
-                    // Fallback for unknown platforms
-                    tauri_plugin_autostart::MacosLauncher::LaunchAgent
-                }
-            },
+            platform::get_autostart_launcher(),
             Some(vec!["--hidden"]),
         ))
         .plugin(tauri_plugin_dialog::init())
@@ -142,14 +126,8 @@ fn run_inner() -> KeylessResult<()> {
             // Register popover blur guard (prevents popover from hiding when opening dialogs).
             app.manage(PopoverBlurGuard::default());
 
-            #[cfg(target_os = "macos")]
-            {
-                use tauri::ActivationPolicy;
-                eprintln!("[setup] Setting activation policy to Accessory...");
-                // Set activation policy to Accessory (no Dock icon, true menubar app feel).
-                // This can be toggled from Settings if the user wants a Dock icon.
-                app.set_activation_policy(ActivationPolicy::Accessory);
-            }
+            // Configure platform-specific app settings.
+            platform::configure_app(&mut *app);
 
             eprintln!("[setup] Preloading Candle device...");
             // Preload Candle device on main thread to ensure Metal device is created

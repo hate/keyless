@@ -4,8 +4,6 @@ import type { BackendModelInfo } from '../types';
 
 const mockModelInfo: BackendModelInfo = {
 	id: 'test-model',
-	name: 'Test Model',
-	size: 1000000,
 	downloaded: false,
 	downloading: false,
 };

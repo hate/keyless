@@ -11,7 +11,6 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { logError } from '../utils/logger';
 import { safeExecute } from '../utils/errorHandling';
 import { BrandTitle } from '../components/BrandTitle';
 import { PermissionCard } from '../components/PermissionCard';

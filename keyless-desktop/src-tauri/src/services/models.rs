@@ -324,7 +324,7 @@ impl ModelsService for ModelsServiceImpl {
     fn list_models(&self) -> Result<Vec<ModelInfo>, String> {
         // Get list of all remote models from the catalog.
         let remote = self.backend.list_remote_models()?;
-        
+
         // Get list of locally installed models and convert to HashSet for fast lookup.
         let local_list = self
             .installed
@@ -332,10 +332,10 @@ impl ModelsService for ModelsServiceImpl {
             .map_err(|_| "models: installed list poisoned".to_string())?
             .clone();
         let local: HashSet<String> = local_list.into_iter().collect();
-        
+
         // Pre-allocate vector with capacity for all remote models.
         let mut infos = Vec::with_capacity(remote.len());
-        
+
         // Lock downloads map to check download status for each model.
         let downloads_guard = self
             .downloads
@@ -364,13 +364,13 @@ impl ModelsService for ModelsServiceImpl {
     fn list_models_with_sizes(&self) -> Result<Vec<ModelInfoWithSize>, String> {
         // Get base model list (without sizes).
         let base = self.list_models()?;
-        
+
         // Lock sizes cache to look up download sizes.
         let sizes_guard = self
             .sizes
             .lock()
             .map_err(|_| "models: sizes map poisoned".to_string())?;
-        
+
         // Enrich each model with size information from the cache.
         let infos = base
             .into_iter()
@@ -436,7 +436,7 @@ impl ModelsService for ModelsServiceImpl {
         let downloads = Arc::clone(&self.downloads);
         let installed = Arc::clone(&self.installed);
         let model = model_id.to_string();
-        
+
         // Get the cancellation flag for the download worker.
         // We need to lock again to get the entry we just created/updated.
         let cancel_flag = {
@@ -518,7 +518,7 @@ impl ModelsService for ModelsServiceImpl {
                     DownloadEvent::Done(result) => {
                         // Download completed (successfully or with error).
                         let (ok, error_msg) = match result {
-                            Ok(()) => (true, None), // Success.
+                            Ok(()) => (true, None),                 // Success.
                             Err(e) => (false, Some(e.to_string())), // Error.
                         };
                         let mut was_paused = false;
@@ -577,31 +577,34 @@ impl ModelsService for ModelsServiceImpl {
     }
 
     fn cancel_download(&self, model_id: &str) -> Result<(), String> {
-        // Lock downloads map to update the entry.
+        // Lock downloads map to update and remove the entry.
         let mut guard = self
             .downloads
             .lock()
             .map_err(|_| "models: download map poisoned".to_string())?;
-        if let Some(entry) = guard.get_mut(model_id) {
-            // Set cancellation flag (download worker will check this and stop).
-            entry.cancel.store(true, Ordering::Relaxed);
-            // Update status to reflect cancellation.
-            entry.status.downloading = false;
-            entry.status.error = None; // Cancellation is not an error.
-            entry.status.stage = Some("cancelled".to_string());
-            entry.status.progress = None; // Clear progress on cancel.
-        } else {
+        
+        // Check if download exists.
+        if guard.get(model_id).is_none() {
             return Err("download not found".into());
         }
+        
+        // Set cancellation flag (download worker will check this and stop).
+        if let Some(entry) = guard.get_mut(model_id) {
+            entry.cancel.store(true, Ordering::Relaxed);
+        }
+        
+        // Remove the download entry from the map (cleanup).
+        guard.remove(model_id);
+        
         // Release lock before I/O operations.
         drop(guard);
-        
+
         // Delete the partially downloaded file (cleanup).
         // Ignore errors here; the file might not exist or might be cleaned up by the worker.
         if let Err(e) = keyless_models::hf::delete_partial_file(model_id) {
             eprintln!("[models] failed to delete partial download for {model_id}: {e}");
         }
-        
+
         // Emit cancellation event to frontend.
         if let Ok(value) = serde_json::to_value(DownloadCancelledPayload {
             model_id: model_id.to_string(),
@@ -655,7 +658,7 @@ impl ModelsService for ModelsServiceImpl {
         }
         // Release lock before spawning download thread.
         drop(guard);
-        
+
         // Spawn download again (the download worker supports HTTP Range requests,
         // so it will resume from where it left off using the partial file).
         self.start_download(model_id)
@@ -664,11 +667,11 @@ impl ModelsService for ModelsServiceImpl {
     fn refresh_sizes(&self) -> Result<(), String> {
         // Get list of all remote models to fetch sizes for.
         let models = self.backend.list_remote_models()?;
-        
+
         // Create a channel for receiving size updates (model ID -> size in bytes).
         // Buffer size of 64 should handle bursts of size updates.
         let (tx, rx) = std::sync::mpsc::sync_channel::<(String, Option<u64>)>(64);
-        
+
         // Spawn a thread to emit cached sizes first (fast path, works offline).
         // This provides immediate feedback while remote sizes are being fetched.
         {
@@ -676,18 +679,18 @@ impl ModelsService for ModelsServiceImpl {
             let models_cached = models.clone();
             thread::spawn(move || workers::emit_cached_sizes(models_cached, tx_cached));
         }
-        
+
         // Spawn a thread to fetch fresh sizes from remote sources (slower, requires network).
         // This updates the cache with the latest sizes.
         thread::spawn(move || workers::fetch_sizes_now(models, tx));
-        
+
         // Spawn a thread to process size updates and emit events to frontend.
         let sizes_map = Arc::clone(&self.sizes);
         let publisher = Arc::clone(&self.events);
         thread::spawn(move || {
             // Batch updates to avoid flooding the frontend with events.
             let mut updates: Vec<(String, Option<u64>)> = Vec::new();
-            
+
             // Process all size updates from both cached and remote sources.
             while let Ok((id, size)) = rx.recv() {
                 // Update the in-memory sizes cache if we got a valid size.
@@ -698,7 +701,7 @@ impl ModelsService for ModelsServiceImpl {
                 }
                 // Add to batch for frontend notification.
                 updates.push((id, size));
-                
+
                 // Emit batched updates every 16 models (reduces event overhead).
                 if updates.len() >= 16 {
                     if let Ok(val) = serde_json::to_value(
@@ -712,7 +715,7 @@ impl ModelsService for ModelsServiceImpl {
                     updates.clear();
                 }
             }
-            
+
             // Emit any remaining updates that didn't reach the batch size.
             if !updates.is_empty()
                 && let Ok(val) = serde_json::to_value(
@@ -731,28 +734,28 @@ impl ModelsService for ModelsServiceImpl {
     fn purge_models_cache(&self) -> Result<(), String> {
         // Get the root cache directory where all models are stored.
         let root = keyless_models::hf::keyless_cache_root();
-        
+
         // Remove the entire cache directory if it exists.
         if root.exists() {
             std::fs::remove_dir_all(&root).map_err(|e| format!("purge: {e}"))?;
         }
-        
+
         // Recreate the cache directory (empty).
         std::fs::create_dir_all(&root).map_err(|e| format!("recreate cache: {e}"))?;
-        
+
         // Clear the in-memory sizes cache.
         if let Ok(mut s) = self.sizes.lock() {
             s.clear();
         }
-        
+
         // Clear the installed models list.
         if let Ok(mut installed) = self.installed.lock() {
             installed.clear();
         }
-        
+
         // Save empty sizes cache to disk (persist the purge).
         keyless_models::meta::save_sizes_cache(&HashMap::new());
-        
+
         // Notify frontend that the catalog was refreshed (purged).
         if let Ok(val) = serde_json::to_value(serde_json::json!({"ok": true})) {
             self.events.emit_json("catalog_refreshed", val);
@@ -764,15 +767,15 @@ impl ModelsService for ModelsServiceImpl {
         // Models are stored under "<root>/<org>--<repo>/" (not "<root>/<org>/<repo>/").
         // The double-dash format avoids nested directories. Use the helper to construct the correct path.
         let path = keyless_models::hf::keyless_cache_repo_dir(model_id);
-        
+
         // Verify the model is actually installed before attempting removal.
         if !path.exists() {
             return Err("model not installed".to_string());
         }
-        
+
         // Remove the model directory and all its contents.
         std::fs::remove_dir_all(&path).map_err(|e| format!("remove model: {e}"))?;
-        
+
         // Intentionally DO NOT remove the model's size from the in-memory cache.
         // Keeping the known size allows the UI to continue showing accurate size
         // information when the model becomes "available" again after deletion.
@@ -781,12 +784,12 @@ impl ModelsService for ModelsServiceImpl {
             // Persist the sizes cache (which still contains this model's size).
             keyless_models::meta::save_sizes_cache(&guard);
         }
-        
+
         // Remove the model from the installed list.
         if let Ok(mut installed) = self.installed.lock() {
             installed.retain(|m| m != model_id);
         }
-        
+
         // Notify frontend that the model was removed.
         if let Ok(val) = serde_json::to_value(serde_json::json!({ "modelId": model_id })) {
             self.events.emit_json("model_removed", val);
@@ -814,7 +817,7 @@ impl ModelsService for ModelsServiceImpl {
                 .map_err(|_| "models: installed list poisoned".to_string())?;
             guard.iter().any(|m| m == model_id)
         };
-        
+
         // Return a simple status (installed or not, no download state).
         Ok(ModelStatus {
             downloaded,

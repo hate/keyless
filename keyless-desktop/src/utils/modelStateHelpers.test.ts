@@ -13,8 +13,6 @@ import type { BackendModelInfo, BackendModelStatus } from '../types';
 
 const mockModel: BackendModelInfo = {
 	id: 'test-model',
-	name: 'Test Model',
-	size: 1000000,
 	downloaded: false,
 	downloading: false,
 };
@@ -28,10 +26,10 @@ describe('updateModelInArray', () => {
 	});
 
 	it('leaves other models unchanged', () => {
-		const models = [mockModel, { ...mockModel, id: 'other-model', name: 'Other' }];
-		const result = updateModelInArray(models, 'test-model', { name: 'Updated' });
-		expect(result[0].name).toBe('Updated');
-		expect(result[1].name).toBe('Other');
+		const models = [mockModel, { ...mockModel, id: 'other-model' }];
+		const result = updateModelInArray(models, 'test-model', { downloaded: true });
+		expect(result[0].downloaded).toBe(true);
+		expect(result[1].downloaded).toBe(false); // unchanged
 	});
 
 	it('returns new array (immutability)', () => {

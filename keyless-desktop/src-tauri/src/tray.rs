@@ -629,65 +629,54 @@ pub fn toggle_popover(app: &AppHandle) -> KeylessResult<()> {
 fn update_arrow_direction(app: &AppHandle, win: &tauri::WebviewWindow) {
     // Determine arrow direction based on actual window position.
     // After positioning, check if popover is above or below tray and emit direction.
-    if let Ok(monitor) = app.primary_monitor() {
-        if let Some(mon) = monitor {
-            let scale = mon.scale_factor();
-            let work_area = mon.work_area();
-            let work_y = work_area.position.y as f64 / scale;
-            let work_height = work_area.size.height as f64 / scale;
-            let work_bottom = work_y + work_height;
+    if let Ok(Some(mon)) = app.primary_monitor() {
+        let scale = mon.scale_factor();
+        let work_area = mon.work_area();
+        let work_y = work_area.position.y as f64 / scale;
+        let work_height = work_area.size.height as f64 / scale;
+        let work_bottom = work_y + work_height;
 
-            if let Ok(window_pos_physical) = win.outer_position() {
-                // Convert physical position to logical pixels
-                let window_y = window_pos_physical.y as f64 / scale;
+        if let Ok(window_pos_physical) = win.outer_position() {
+            // Convert physical position to logical pixels
+            let window_y = window_pos_physical.y as f64 / scale;
 
-                // Get window height to find bottom edge
-                if let Ok(window_size_physical) = win.outer_size() {
-                    // outer_size() returns PhysicalSize<u32>, convert to logical pixels
-                    let window_height = window_size_physical.height as f64 / scale;
-                    let window_bottom = window_y + window_height;
+            // Get window height to find bottom edge
+            if let Ok(window_size_physical) = win.outer_size() {
+                // outer_size() returns PhysicalSize<u32>, convert to logical pixels
+                let window_height = window_size_physical.height as f64 / scale;
+                let window_bottom = window_y + window_height;
 
-                    // Determine arrow direction based on where the tray is relative to the popover.
-                    // The arrow is at the TOP of the popover content, so:
-                    // - If popover is BELOW tray: arrow should point UP (toward tray above)
-                    // - If popover is ABOVE tray: arrow should point DOWN (toward tray below)
-                    //
-                    // We detect tray position by checking which edge of the screen the popover is closer to:
-                    // - If popover top is very close to screen top (< 50px): tray is likely at top → arrow UP
-                    // - If popover bottom is very close to screen bottom (< 50px): tray is likely at bottom → arrow DOWN
-                    // - Otherwise, use platform-specific defaults
-                    let edge_threshold = 50.0; // pixels from edge
-                    let distance_from_top = window_y - work_y;
-                    let distance_from_bottom = work_bottom - window_bottom;
+                // Determine arrow direction based on where the tray is relative to the popover.
+                // The arrow is at the TOP of the popover content, so:
+                // - If popover is BELOW tray: arrow should point UP (toward tray above)
+                // - If popover is ABOVE tray: arrow should point DOWN (toward tray below)
+                //
+                // We detect tray position by checking which edge of the screen the popover is closer to:
+                // - If popover top is very close to screen top (< 50px): tray is likely at top → arrow UP
+                // - If popover bottom is very close to screen bottom (< 50px): tray is likely at bottom → arrow DOWN
+                // - Otherwise, use platform-specific defaults
+                let edge_threshold = 50.0; // pixels from edge
+                let distance_from_top = window_y - work_y;
+                let distance_from_bottom = work_bottom - window_bottom;
 
-                    let direction = if distance_from_top < edge_threshold {
-                        // Popover is very close to top → tray is at top → arrow points UP
+                let direction = if distance_from_top < edge_threshold {
+                    // Popover is very close to top → tray is at top → arrow points UP
+                    "up"
+                } else if distance_from_bottom < edge_threshold {
+                    // Popover is very close to bottom → tray is at bottom → arrow points DOWN
+                    "down"
+                } else {
+                    // Not near either edge - use platform-specific default
+                    // But if window is in upper half, assume tray at top
+                    let default = crate::platform::default_tray_arrow_direction();
+                    if window_y < work_y + work_height / 2.0 {
                         "up"
-                    } else if distance_from_bottom < edge_threshold {
-                        // Popover is very close to bottom → tray is at bottom → arrow points DOWN
-                        "down"
                     } else {
-                        // Not near either edge - use platform-specific default
-                        // macOS: tray always at top → arrow UP
-                        // Windows/Linux: tray usually at bottom → arrow DOWN, but can vary
-                        #[cfg(target_os = "macos")]
-                        {
-                            "up" // macOS tray is always at top
-                        }
-                        #[cfg(not(target_os = "macos"))]
-                        {
-                            // Windows/Linux: default to DOWN (most common: tray at bottom)
-                            // But if window is in upper half, assume tray at top
-                            if window_y < work_y + work_height / 2.0 {
-                                "up"
-                            } else {
-                                "down"
-                            }
-                        }
-                    };
+                        default
+                    }
+                };
 
-                    let _ = app.emit("arrow_direction", direction);
-                }
+                let _ = app.emit("arrow_direction", direction);
             }
         }
     }

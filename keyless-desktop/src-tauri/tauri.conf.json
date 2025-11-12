@@ -18,7 +18,7 @@
         "title": "keyless",
         "url": "http://localhost:1420",
         "width": 280,
-        "height": 520,
+        "height": 600,
         "decorations": false,
         "transparent": true,
         "resizable": false,

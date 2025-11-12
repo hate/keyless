@@ -1,0 +1,99 @@
+.pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  background: #0f0f0f;
+  border: 1.5px solid #404040;
+  box-sizing: border-box;
+  animation: scaleIn 0.2s ease-out;
+  /* Prevent overflow during animations */
+  overflow: hidden;
+  /* Center the pill in the window */
+  margin: 0 auto;
+}
+
+.pill.finalizing {
+  border-color: #5a5a5a;
+}
+
+.pill.exiting {
+  animation: scaleOut 0.15s ease-in forwards;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scaleX(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes scaleOut {
+  from {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  to {
+    opacity: 0;
+    transform: scaleX(0.3);
+  }
+}
+
+.bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 20px;
+}
+
+.bar {
+  width: 5px;
+  border-radius: 2px;
+  background: linear-gradient(to bottom, #ff5555, #f1fa8c, #50fa7b);
+  transition: height 100ms ease-out, opacity 100ms ease-out;
+}
+
+.bar.finalizing {
+  background: #ffffff;
+  height: 100%;
+  opacity: 0.9;
+  animation: finalEqPulse 1s ease-in-out infinite;
+  animation-direction: alternate;
+  transform-origin: center;
+}
+
+.bar.idle {
+  width: 5px;
+  height: 4px !important;
+  border-radius: 50%;
+  background: #2a2a2a;
+  opacity: 0.9 !important;
+}
+
+@keyframes finalEqPulse {
+  0% {
+    transform: scaleY(0.35);
+    opacity: 0.35;
+  }
+  35% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+  70% {
+    transform: scaleY(0.55);
+    opacity: 0.75;
+  }
+  100% {
+    transform: scaleY(0.35);
+    opacity: 0.35;
+  }
+}
+

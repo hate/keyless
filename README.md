@@ -388,7 +388,7 @@ pub enum KeylessError {
 ```
 keyless/
 ├── keyless/              # TUI binary (Ratatui-based terminal interface)
-├── keyless-desktop/      # Desktop app (Tauri v2 + React + TypeScript) [Beta]
+├── keyless-desktop/      # Desktop app (Tauri v2 + React + TypeScript)
 │   ├── src/              # React frontend (components, hooks, views, utils)
 │   └── src-tauri/        # Rust backend (IPC commands, services, runtime)
 ├── keyless-whisper/      # Whisper engine (Candle ML, model loading, inference)

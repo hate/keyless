@@ -39,7 +39,7 @@ pub fn select_sink(ctx: DesktopState<'_>, id: String) -> Result<(), String> {
     ctx.events.emit("log_message", &log_message);
     // Emit output mode change event so frontend can update UI state.
     ctx.events.emit("output_mode_changed", &selection.sink_id);
-    
+
     // Restart the pipeline to apply the new sink (sink changes require pipeline restart
     // because the output handler needs to be reconfigured).
     ctx.pipeline.request_restart();

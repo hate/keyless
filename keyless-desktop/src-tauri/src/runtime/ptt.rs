@@ -48,7 +48,7 @@ pub fn ensure_ptt_listener_started() {
         emit_log("PTT listener pending: pipeline still starting".to_string());
         return;
     }
-    
+
     // Get the PTT controller and check if listener is already started.
     if let Some(ptt_cell) = PTT.get() {
         let preset_mode;
@@ -74,7 +74,7 @@ pub fn ensure_ptt_listener_started() {
                 return;
             }
         }
-        
+
         // Spawn the rdev listener thread (monitors global hotkey events).
         // The listener reads preset_mode to determine which hotkey combo to listen for.
         let handle = match ptt::spawn_listener(preset_mode, enabled, stop_flag, tx_hold, tx_evt) {

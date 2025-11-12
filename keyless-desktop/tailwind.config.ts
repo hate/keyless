@@ -64,20 +64,25 @@ export default {
       borderRadius: {
         xl: '12px',
       },
-      keyframes: {
-        blink: {
-          '0%, 50%': { opacity: '1' },
-          '51%, 100%': { opacity: '0' },
-        },
-        pulseBright: {
-          '0%, 100%': { opacity: '1', filter: 'brightness(1)' },
-          '50%': { opacity: '1', filter: 'brightness(1.5)' },
-        },
-      },
-      animation: {
-        blink: 'blink 1s steps(1, end) infinite',
-        pulseBright: 'pulseBright 1.5s ease-in-out infinite',
-      },
+             keyframes: {
+               blink: {
+                 '0%, 50%': { opacity: '1' },
+                 '51%, 100%': { opacity: '0' },
+               },
+               pulseBright: {
+                 '0%, 100%': { opacity: '1', filter: 'brightness(1)' },
+                 '50%': { opacity: '1', filter: 'brightness(1.5)' },
+               },
+               scaleIn: {
+                 '0%': { transform: 'scale(0.9)', opacity: '0' },
+                 '100%': { transform: 'scale(1)', opacity: '1' },
+               },
+             },
+             animation: {
+               blink: 'blink 1s steps(1, end) infinite',
+               pulseBright: 'pulseBright 1.5s ease-in-out infinite',
+               scaleIn: 'scaleIn 0.2s ease-out',
+             },
     },
   },
   plugins: [],

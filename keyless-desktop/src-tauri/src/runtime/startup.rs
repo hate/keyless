@@ -78,7 +78,7 @@ pub fn init() -> KeylessResult<()> {
         let mut last_state = false; // Track last PTT hold state to detect edges.
         loop {
             let mut progressed = false; // Track if we processed any events this iteration.
-            
+
             // Process heartbeat events (proves the PTT listener thread is alive).
             // Heartbeats are sent periodically by the listener when it's running.
             if rx_evt.try_recv().is_ok() {
@@ -89,7 +89,7 @@ pub fn init() -> KeylessResult<()> {
                     .store(now_millis(), Ordering::Relaxed);
                 progressed = true;
             }
-            
+
             // Process PTT hold state changes (edge detection).
             // The listener thread sends hold state changes through this channel.
             if let Ok(held) = rx_hold.try_recv() {
@@ -107,14 +107,19 @@ pub fn init() -> KeylessResult<()> {
                     emit_log(if held { "PTT pressed" } else { "PTT released" });
                     emit_event("status_changed", status.clone());
                     emit_log(format!("status_changed: {}", status));
-                    // Show/hide overlay based on hold state.
-                    with_events(|events| {
-                        let app_handle = events.app_handle();
-                        if held {
+                    // Show overlay when PTT is held.
+                    // Don't hide when released - let it stay visible in finalizing state
+                    // until final transcription arrives (handled in bridge.rs).
+                    if held {
+                        with_events(|events| {
+                            let app_handle = events.app_handle();
                             // Show recording indicator overlay when PTT is held.
                             overlay::show_overlay(&app_handle);
-                        }
-                    });
+                        });
+                    }
+                    // Note: We don't hide the overlay here when PTT is released.
+                    // The overlay will stay visible in finalizing state until the
+                    // final transcription arrives, at which point bridge.rs will hide it.
                 }
             }
 

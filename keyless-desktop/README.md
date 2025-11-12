@@ -73,11 +73,14 @@ Native desktop application that wires microphone audio → Whisper transcription
   - `startup.rs`: Phased startup logic
   - `state.rs`: Runtime state management
 - `src/overlay.rs`: Overlay window management (Recording Pill, Toast)
+- `src/platform.rs`: Cross-platform utilities (autostart, system settings, tray positioning, overlay offsets)
 - `src/popover.rs`: Popover window blur suppression
 - `src/tray.rs`: System tray icon and menu
 - `tests/`: Service layer unit tests
 
 **React frontend (`src/`):**
+- `main.tsx`: React entry point (renders App with ErrorBoundary)
+- `index.css`: Global styles
 - `App.tsx`: Main application component, view orchestration
 - `views/`: Main application views
   - `Idle.tsx`: Idle state view
@@ -99,8 +102,14 @@ Native desktop application that wires microphone audio → Whisper transcription
   - `PermissionCard.tsx`: Permission status card
   - `StatusPill.tsx`: Status indicator pill
 - `overlay/`: Overlay window components
-  - `pill/`: Recording Pill overlay (Pill.tsx, Pill.css)
-  - `toast/`: Toast notification overlay (Toast.tsx, Toast.css)
+  - `pill/`: Recording Pill overlay
+    - `index.tsx`: Entry point for overlay.html (renders Pill component)
+    - `Pill.tsx`: Main Pill component
+    - `Pill.css`: Styles
+  - `toast/`: Toast notification overlay
+    - `index.tsx`: Entry point for toast.html (renders Toast component)
+    - `Toast.tsx`: Main Toast component
+    - `Toast.css`: Styles
 - `hooks/`: React hooks for state management
   - `useAnimation.ts`: Mount animation hook
   - `useDownloads.ts`: Download management hook
@@ -131,11 +140,12 @@ Native desktop application that wires microphone audio → Whisper transcription
   - `colors.ts`: Color palette
   - `views.ts`: View type definitions
 - `types/`: TypeScript type definitions
+  - `index.ts`: Centralized type definitions
 
 **Entry points:**
-- `index.html`: Main popover window
-- `overlay.html`: Recording Pill overlay window
-- `toast.html`: Toast notification overlay window
+- `index.html`: Main popover window (loads `src/main.tsx`)
+- `overlay.html`: Recording Pill overlay window (loads `src/overlay/pill/index.tsx`)
+- `toast.html`: Toast notification overlay window (loads `src/overlay/toast/index.tsx`)
 
 - Depends on crates: `keyless-core`, `keyless-models`, `keyless-audio`, `keyless-whisper`, `keyless-output`, `keyless-runtime`, `keyless-logging`
 
@@ -167,7 +177,7 @@ pnpm tauri build  # Production build
 
 **System tray:**
 - Click tray icon to open/close popover
-- Right-click for context menu (Settings, Output Mode, Quit)
+- Right-click for context menu (Settings, Output Mode, Model Select, Quit)
 
 **Popover views:**
 - **Idle**: Shows status, word count, talk time, quick access to Settings
@@ -293,12 +303,20 @@ Note: Microphone/Paste permissions are OS‑managed. On macOS, grant Accessibili
 
 **Windows/Linux**: ⚠️ Core functionality should work, but:
 - **Autostart**: Implemented but may need testing on various distributions/Windows versions
-- **System settings links**: Implemented but may not work on all Linux distributions
-- **UI behaviors**: Some macOS-specific behaviors (activation policy, menubar-only mode) don't apply
+- **System settings links**: Automatically detects desktop environment (GNOME, KDE, XFCE) and uses appropriate commands
+
+**Linux Platform Detection:**
+- **Desktop Environment**: Automatically detects GNOME, KDE, XFCE, or other DEs and opens system settings accordingly
+- **Init System**: Automatically detects systemd, OpenRC, or runit; autostart only works with systemd (warns on other init systems)
+- **System Settings**: Uses DE-specific commands:
+  - GNOME: `gnome-control-center`
+  - KDE: `systemsettings5`
+  - XFCE: `xfce4-settings-manager`
+  - Other: Falls back to GNOME commands
 
 **Known Limitations:**
-- System settings opening on Linux depends on desktop environment (GNOME preferred)
-- Autostart on Linux uses systemd (may not work on non-systemd distributions)
+- Autostart on Linux only works with systemd (OpenRC/runit users need manual configuration)
+- System settings opening may not work on all Linux distributions or desktop environments
 - Some UI polish may differ between platforms
 
 **Contributions welcome**: If you test on Windows/Linux and find issues, please report them!
@@ -353,7 +371,6 @@ Note: Microphone/Paste permissions are OS‑managed. On macOS, grant Accessibili
     - `rdev = { version = "0.5", default-features = false }` (turns off `key_names`)
 
 **Debug notes:**
-- If you ever need to investigate again:
   - Attach LLDB: `lldb -p $(pgrep -n keyless-desktop)`
   - Breakpoints: `b __abort_with_payload`, `b __assert_rtn`, `b objc_exception_throw`
   - On stop: `thread select <id>` then `bt 50`

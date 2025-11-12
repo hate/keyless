@@ -198,7 +198,7 @@ pub fn bridge_events(
         if let Ok(msg) = rx_log.try_recv() {
             any_alive = true;
             eprintln!("[backend] {}", msg);
-            
+
             // Handle explicit word count messages ("Words: N").
             // These are sent by the pipeline when it knows the exact word count.
             if let Some(n) = msg.strip_prefix("Words: ")
@@ -229,7 +229,7 @@ pub fn bridge_events(
                 stats_dirty = true;
                 // Suppress word counting on the next "Final: ..." message (avoid double-counting).
                 suppress_final_once = true;
-            } 
+            }
             // Handle final transcription messages ("Final: {text}").
             // These are sent when the pipeline outputs the final transcribed text.
             else if let Some(text) = msg.strip_prefix("Final: ") {
@@ -290,7 +290,7 @@ pub fn bridge_events(
                 });
                 // Schedule toast to auto-hide after 5.3 seconds.
                 toast_hide_deadline = Some(Instant::now() + Duration::from_millis(5300));
-                
+
                 // Activate paste guard for 750ms after finalization.
                 // This prevents accidental pastes immediately after transcription completes.
                 let deadline = Instant::now() + Duration::from_millis(750);
@@ -511,7 +511,7 @@ pub fn bridge_events(
                 },
             );
             heartbeat_warned = true;
-        } 
+        }
         // Clear warning if heartbeat is no longer stale or PTT is disabled.
         else if heartbeat_warned && (!stale || !enabled) {
             emit_event(

@@ -219,11 +219,11 @@ function Popover() {
 	]);
 
 	return (
-		<div className="flex flex-col" style={{ height: '100vh' }}>
+		<div className="flex flex-col" style={{ height: '100%', width: '100%', overflow: 'hidden' }}>
 			{/* Main content area with mount animation */}
-			<div className={animateOnMount ? "fade-in slide-up" : undefined}>
+			<div className={animateOnMount ? "fade-in slide-up" : undefined} style={{ flex: '1 1 auto', minHeight: 0, overflow: 'hidden', maxHeight: overlayHeight > 0 ? `calc(100% - ${overlayHeight + 20}px)` : '100%' }}>
 				{/* Scrollable view container */}
-				<div className="scrollbar-hide" style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'hidden', overflowX: 'hidden' }}>
+				<div className="scrollbar-hide" style={{ height: '100%', overflowY: 'hidden', overflowX: 'hidden' }}>
 					{/* View stack: handles enter/exit transitions */}
 					<div className="view-stack">
 						{/* Exiting view: animates out before being removed */}
@@ -251,8 +251,8 @@ function Popover() {
 					</div>
 				</div>
 			</div>
-			{/* Download overlay: shows active model downloads */}
-			<div ref={overlayRef}>
+			{/* Download overlay: shows active model downloads - positioned below main content */}
+			<div ref={overlayRef} style={{ flexShrink: 0, marginTop: '4px', marginBottom: '12px' }}>
 				<DownloadOverlay
 					downloads={downloads}
 					modelSizes={modelSizes}

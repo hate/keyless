@@ -13,6 +13,32 @@
 body {
   background: transparent; /* transparent window background (works on all platforms) */
   color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent scrollbars in overlay windows */
+  width: 280px; /* Fixed width matching window configuration */
+  max-width: 280px;
+  min-width: 280px;
+}
+
+/* Ensure overlay windows have no default margins/padding */
+html {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Root container for popover window */
+#root {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  max-width: 280px; /* Fixed width matching window configuration */
+  min-width: 280px;
 }
 
 /* Cross-platform font stack for form controls (prioritizes native system fonts) */
