@@ -82,6 +82,13 @@ jobs:
         with:
           path: artifacts
 
+      - name: Find and prepare release files
+        shell: bash
+        run: |
+          mkdir -p release-files
+          find artifacts -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} release-files/ \;
+          ls -lh release-files/
+
       - name: Create Desktop App release
         uses: softprops/action-gh-release@v2
         with:
@@ -95,6 +102,6 @@ jobs:
             - Linux: `.deb` or `.rpm` package
             - macOS: `.dmg` installer
             - Windows: `.msi` installer
-          files: artifacts/**/*
+          files: release-files/*
           draft: false
           prerelease: false
