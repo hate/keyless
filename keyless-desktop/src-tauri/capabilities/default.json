@@ -7,6 +7,9 @@
     "core:default",
     "dialog:default",
     "dialog:allow-open",
-    "opener:default"
+    "opener:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }
