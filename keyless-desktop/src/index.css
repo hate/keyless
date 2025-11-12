@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  /* CSS variables for colors that need to be used in CSS (not Tailwind classes) */
   --bg-dark: #0f0f0f;
   --border: #2a2a2a;
   --text-primary: #e5e5e5;
@@ -10,8 +11,103 @@
 }
 
 body {
-  background: transparent; /* let the macOS transparent window show through */
+  background: transparent; /* transparent window background (works on all platforms) */
   color: var(--text-primary);
+}
+
+/* Cross-platform font stack for form controls (prioritizes native system fonts) */
+select,
+option,
+input,
+textarea,
+button {
+  /* macOS: SF Pro / San Francisco */
+  /* Windows: Segoe UI */
+  /* Linux: System UI fonts (varies by distro) */
+  font-family: 
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Segoe UI", "Segoe UI Variable", "Segoe UI Emoji",
+    "Helvetica Neue", Helvetica, Arial,
+    "Noto Sans", "Liberation Sans", "DejaVu Sans",
+    "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-weight: 400;
+  /* Avoid WebKit generating internal SF variable instances that trigger CoreText fallback */
+  font-variation-settings: normal;
+  font-optical-sizing: none;
+  font-style: normal;
+  text-rendering: optimizeLegibility;
+}
+
+/* Motion-safe animation utilities */
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in { animation: fade-in 180ms ease-out both; }
+  .slide-up { animation: slide-up 220ms cubic-bezier(.2,.8,.2,1) both; }
+  .slide-down { animation: slide-down 220ms cubic-bezier(.2,.8,.2,1) both; }
+  .btn-anim { transition: transform .15s ease, opacity .15s ease; }
+  .btn-anim:hover { opacity: .95; }
+  .btn-anim:active { transform: scale(.98); }
+  .view-transition[data-transition="enter"][data-direction="down"] {
+    animation: view-enter-down 350ms cubic-bezier(.25,.46,.45,.94) both;
+  }
+  .view-transition[data-transition="enter"][data-direction="up"] {
+    animation: view-enter-up 350ms cubic-bezier(.25,.46,.45,.94) both;
+  }
+  .view-transition[data-transition="exit"][data-direction="up"] {
+    animation: view-exit-up 350ms cubic-bezier(.25,.46,.45,.94) both;
+  }
+  .view-transition[data-transition="exit"][data-direction="down"] {
+    animation: view-exit-down 350ms cubic-bezier(.25,.46,.45,.94) both;
+  }
+}
+
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes slide-down { from { opacity: 1; transform: translateY(0) } to { opacity: 0; transform: translateY(8px) } }
+
+.view-stack {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+}
+
+.view-transition {
+  width: 100%;
+  will-change: transform, opacity;
+}
+
+.view-transition[data-transition="exit"] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.view-transition[data-transition="enter"] {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes view-enter-down {
+  from { opacity: 0; transform: translateY(-24px) scale(.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes view-enter-up {
+  from { opacity: 0; transform: translateY(24px) scale(.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes view-exit-up {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-24px) scale(.94); }
+}
+
+@keyframes view-exit-down {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(24px) scale(.94); }
 }
 
 .blink {
@@ -32,6 +128,53 @@ button {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   user-select: none;
+  transition: transform .15s ease, opacity .15s ease, border-color .2s ease;
+}
+
+/* Global focus-visible ring for interactive elements */
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px rgba(229, 229, 229, 0.2);
+}
+
+/* Utility: mask top edge to hide seams under the arrow on HiDPI */
+.mask-top { position: relative; }
+.mask-top:before {
+  content: '';
+  position: absolute;
+  top: -2px; /* overlap border */
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--bg-dark);
+  z-index: 6;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* VAD pulse animation - respects reduced motion preference */
+@media (prefers-reduced-motion: no-preference) {
+  .vad-pulse {
+    animation: vad-pulse 1.5s ease-in-out infinite;
+  }
+}
+
+@keyframes vad-pulse {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.5);
+  }
 }
 
 /* Custom slider styling to match dark theme */
@@ -45,8 +188,8 @@ input[type="range"] {
 
 /* Track styling - Webkit browsers (Chrome, Safari, Edge) */
 input[type="range"]::-webkit-slider-runnable-track {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
   border-radius: 4px;
   height: 6px;
 }
@@ -54,8 +197,8 @@ input[type="range"]::-webkit-slider-runnable-track {
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  background: #e8e8e8;
-  border: 1px solid #2a2a2a;
+  background: var(--text-primary);
+  border: 1px solid var(--border);
   border-radius: 50%;
   height: 14px;
   width: 14px;
@@ -70,20 +213,20 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 input[type="range"]:focus::-webkit-slider-thumb {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(232, 232, 232, 0.2);
+  box-shadow: 0 0 0 2px rgba(229, 229, 229, 0.2);
 }
 
 /* Track styling - Firefox */
 input[type="range"]::-moz-range-track {
-  background: #1a1a1a;
-  border: 1px solid #2a2a2a;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
   border-radius: 4px;
   height: 6px;
 }
 
 input[type="range"]::-moz-range-thumb {
-  background: #e8e8e8;
-  border: 1px solid #2a2a2a;
+  background: var(--text-primary);
+  border: 1px solid var(--border);
   border-radius: 50%;
   height: 14px;
   width: 14px;
