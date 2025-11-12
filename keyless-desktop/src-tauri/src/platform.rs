@@ -167,7 +167,6 @@ mod linux {
     }
 }
 
-
 /// Open system settings to the specified pane (platform-specific).
 ///
 /// # Arguments
