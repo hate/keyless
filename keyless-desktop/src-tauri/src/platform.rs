@@ -3,6 +3,7 @@
 //! Centralizes all cross-platform differences in one place for easier maintenance.
 
 #[cfg(target_os = "linux")]
+/// Linux-specific platform utilities and detection.
 mod linux {
 
     /// Detected desktop environment on Linux.
