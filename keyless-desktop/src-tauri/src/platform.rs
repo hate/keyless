@@ -167,31 +167,6 @@ mod linux {
     }
 }
 
-/// Platform-specific autostart launcher configuration.
-///
-/// Returns the appropriate autostart launcher for the current platform.
-/// For Linux, uses MacosLauncher as placeholder (plugin handles platform detection internally).
-#[cfg(target_os = "macos")]
-pub fn get_autostart_launcher() -> tauri_plugin_autostart::MacosLauncher {
-    tauri_plugin_autostart::MacosLauncher::LaunchAgent
-}
-
-#[cfg(target_os = "windows")]
-pub fn get_autostart_launcher() -> tauri_plugin_autostart::WindowsLauncher {
-    tauri_plugin_autostart::WindowsLauncher::Service
-}
-
-#[cfg(target_os = "linux")]
-pub fn get_autostart_launcher() -> tauri_plugin_autostart::MacosLauncher {
-    // Linux doesn't have LinuxLauncher in tauri-plugin-autostart v2.
-    // The plugin detects the platform internally, so we use MacosLauncher as placeholder.
-    tauri_plugin_autostart::MacosLauncher::LaunchAgent
-}
-
-#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-pub fn get_autostart_launcher() -> tauri_plugin_autostart::MacosLauncher {
-    tauri_plugin_autostart::MacosLauncher::LaunchAgent // Fallback
-}
 
 /// Open system settings to the specified pane (platform-specific).
 ///
