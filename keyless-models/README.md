@@ -1,6 +1,6 @@
 # keyless-models
 
-HTTP/HF helpers and model metadata/cache utilities for Keyless.
+HTTP/HF helpers and model metadata/cache utilities for keyless.
 
 ## Features
 - Reqwest-only HTTP
@@ -29,7 +29,7 @@ HTTP/HF helpers and model metadata/cache utilities for Keyless.
 - `workers.rs`: Background workers for size fetching (TUI integration)
 
 ## Cache paths
-- Keyless model cache: `~/.cache/keyless/models/<org>--<repo>/...`
+- keyless model cache: `~/.cache/keyless/models/<org>--<repo>/...`
   - Contains downloaded `config.json`, `tokenizer.json`, `model.safetensors`
   - Local discovery scans this directory only
 - Sizes TTL JSON: `~/.cache/keyless/meta/models.json`

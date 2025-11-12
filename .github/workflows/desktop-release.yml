@@ -85,11 +85,11 @@ jobs:
       - name: Create Desktop App release
         uses: softprops/action-gh-release@v2
         with:
-          name: Keyless Desktop ${{ github.ref_name }}
+          name: keyless Desktop ${{ github.ref_name }}
           body: |
-            ## Keyless Desktop Release
+            ## keyless Desktop Release
 
-            Desktop application version of Keyless with GUI.
+            Desktop application version of keyless with GUI.
 
             Download the installer for your platform:
             - Linux: `.deb` or `.rpm` package
