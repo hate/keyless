@@ -1,60 +1,90 @@
-name: desktop-release
+name: Release Desktop App
 
 on:
-    push:
-        tags: ["v*"]
+  push:
+    tags:
+      - "v*"
 
-concurrency:
-    group: desktop-release-${{ github.ref }}
-    cancel-in-progress: true
+permissions:
+  contents: write
 
 jobs:
-    build:
-        runs-on: macos-latest
-        permissions:
-            contents: write
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v5
+  build-release:
+    name: Build Desktop App (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: keyless-desktop-macos-aarch64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: keyless-desktop-macos-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: keyless-desktop-windows-x86_64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: keyless-desktop-linux-x86_64
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v4
-              with:
-                  version: 10
+    steps:
+      - uses: actions/checkout@v5
 
-            - name: Setup Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "lts/*"
-                  cache: "pnpm"
-                  cache-dependency-path: keyless-desktop/pnpm-lock.yaml
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
-            - name: Setup Rust
-              uses: actions-rust-lang/setup-rust-toolchain@v1
-              with:
-                  toolchain: stable
-                  components: clippy, rustfmt
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: "pnpm"
+          cache-dependency-path: keyless-desktop/pnpm-lock.yaml
 
-            - name: Cache cargo
-              uses: Swatinem/rust-cache@v2
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-            - name: Install frontend deps
-              run: pnpm -C keyless-desktop install --frozen-lockfile
+      - name: Install system dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
-            - name: Build desktop (release)
-              run: pnpm -C keyless-desktop tauri build
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
 
-            - name: Upload desktop artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: keyless-desktop-macos-${{ github.ref_name }}
-                  path: |
-                      keyless-desktop/src-tauri/target/**/bundle/**
+      - name: Install frontend deps
+        run: pnpm -C keyless-desktop install --frozen-lockfile
 
-            - name: Create GitHub Release and upload assets
-              uses: softprops/action-gh-release@v2
-              with:
-                  files: |
-                      keyless-desktop/src-tauri/target/**/bundle/**
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build desktop (release)
+        run: pnpm -C keyless-desktop tauri build --target ${{ matrix.target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            keyless-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**
+
+  release:
+    name: Create Desktop App Release
+    needs: build-release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+
+      - name: Create Desktop App release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          draft: false
+          prerelease: false
