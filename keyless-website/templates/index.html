@@ -35,28 +35,79 @@
 
   <!-- Main Content -->
   <main class="max-w-5xl mx-auto space-y-8">
-    <!-- Configuration View -->
+    <!-- Demos Section -->
     <section class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
-      <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ ./keyless --config</h2>
-      <div class="bg-theme-bg-medium p-3 rounded border border-theme-border">
-        <img src="/images/config.png" alt="Transcription demo" class="w-full h-auto rounded" />
+      <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-6">$ ./demos</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        <!-- Desktop App Demo -->
+        <div class="space-y-3">
+          <h3 class="text-lg font-semibold text-theme-text-primary flex items-center gap-2">
+            <span class="text-theme-text-primary">▸</span> Desktop App (Beta)
+          </h3>
+          <div class="bg-theme-bg-medium p-3 rounded border border-theme-border hover-glow transition-all">
+            <img src="/images/keylessDESKTOP.gif" alt="Desktop app demo" class="w-full h-auto rounded" />
+          </div>
+        </div>
+        <!-- TUI Demo -->
+        <div class="space-y-3">
+          <h3 class="text-lg font-semibold text-theme-text-primary flex items-center gap-2">
+            <span class="text-theme-text-primary">▸</span> TUI (Terminal) Version
+          </h3>
+          <div class="bg-theme-bg-medium p-3 rounded border border-theme-border hover-glow transition-all">
+            <img src="/images/keylessTUI.gif" alt="TUI demo" class="w-full h-auto rounded" />
+          </div>
+        </div>
       </div>
     </section>
 
     <section class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
       <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ ./quick-start</h2>
+      <div class="space-y-6">
+        <!-- Desktop App Section -->
       <div class="space-y-4">
+          <h3 class="text-lg font-semibold text-theme-text-primary flex items-center gap-2">
+            <span class="text-theme-text-primary">▸</span> Desktop App (Beta)
+          </h3>
+          <div class="bg-theme-bg-medium p-4 rounded border border-theme-border">
+            <p class="text-theme-text-muted text-sm mb-2">
+              Download desktop app · <a href="https://github.com/hate/keyless/releases" class="text-theme-primary hover:text-theme-accent-bright">Releases</a>
+            </p>
+            <p class="text-xs text-theme-text-secondary mb-3">Look for <span class="text-theme-text-primary">keyless-desktop-*</span> assets</p>
+            <!-- prettier-ignore -->
+            <pre class="font-mono text-sm leading-6 text-theme-text-secondary whitespace-pre"><code class="language-bash"># Download from releases page
+# Install .dmg (macOS), .msi (Windows), or .deb/.rpm (Linux)</code></pre>
+          </div>
+          <div class="bg-theme-bg-medium p-4 rounded border border-theme-border">
+            <p class="text-theme-text-muted text-sm mb-2"># Build from source</p>
+            <p class="text-xs text-theme-text-secondary mb-3">Prerequisites: Node.js (LTS), pnpm (v10+), Rust, Tauri CLI</p>
+            <!-- prettier-ignore -->
+            <pre class="font-mono text-sm leading-6 text-theme-text-secondary whitespace-pre"><code class="language-bash">git clone https://github.com/hate/keyless.git
+cd keyless/keyless-desktop
+pnpm install
+pnpm tauri dev    # Development mode
+pnpm tauri build  # Production build</code></pre>
+          </div>
+          <div class="bg-theme-bg-medium p-3 rounded border border-theme-border">
+            <p class="text-xs text-theme-text-secondary">
+              <span class="text-theme-text-primary font-semibold">First run:</span> Grant microphone and accessibility permissions when prompted. Download a Whisper model from the Models screen. Configure your hotkey and output mode in Settings.
+            </p>
+          </div>
+        </div>
+
+        <!-- TUI Section -->
+        <div class="space-y-4 border-t border-theme-border pt-6">
+          <h3 class="text-lg font-semibold text-theme-text-primary flex items-center gap-2">
+            <span class="text-theme-text-primary">▸</span> TUI (Terminal) Version
+          </h3>
         <div class="bg-theme-bg-medium p-4 rounded border border-theme-border">
           <p class="text-theme-text-muted text-sm mb-2">
             Download binary · <a href="https://github.com/hate/keyless/releases" class="text-theme-primary hover:text-theme-accent-bright">Releases</a>
           </p>
+            <p class="text-xs text-theme-text-secondary mb-3">Look for <span class="text-theme-text-primary">keyless-*</span> assets (not desktop)</p>
           <!-- prettier-ignore -->
           <pre class="font-mono text-sm leading-6 text-theme-text-secondary whitespace-pre"><code class="language-bash"># Download from releases page
-https://github.com/hate/keyless/releases
-
 # Extract and run
 ./keyless  # macOS/Linux
-# or
 keyless.exe # Windows</code></pre>
         </div>
         <div class="bg-theme-bg-medium p-4 rounded border border-theme-border">
@@ -65,8 +116,8 @@ keyless.exe # Windows</code></pre>
           <pre class="font-mono text-sm leading-6 text-theme-text-secondary whitespace-pre"><code class="language-bash"># Latest main
 cargo install --git https://github.com/hate/keyless --package keyless --locked
 
-# Or pin a release
-cargo install --git https://github.com/hate/keyless --tag v0.1.0 --package keyless --locked
+# Or pin a release tag
+cargo install --git https://github.com/hate/keyless --tag tui-v0.3.0 --package keyless --locked
 
 # Update existing install
 cargo install --git https://github.com/hate/keyless --package keyless --locked --force
@@ -84,15 +135,13 @@ cargo install --git https://github.com/hate/keyless --package keyless --locked -
 cd keyless
 cargo build --release
 ./target/release/keyless</code></pre>
+          </div>
+          <div class="bg-theme-bg-medium p-3 rounded border border-theme-border">
+            <p class="text-xs text-theme-text-secondary">
+              <span class="text-theme-text-primary font-semibold">First run:</span> Downloads Whisper model. <span class="text-theme-text-primary font-semibold">Usage:</span> Press Control+Option (configurable) to start dictating.
+            </p>
         </div>
       </div>
-    </section>
-
-    <!-- Running View -->
-    <section class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
-      <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ ./keyless --demo</h2>
-      <div class="bg-theme-bg-medium p-3 rounded border border-theme-border">
-        <img src="/images/transcribe.png" alt="Transcription demo" class="w-full h-auto rounded" />
       </div>
     </section>
 
@@ -100,7 +149,7 @@ cargo build --release
       <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ ls features/</h2>
       <div class="grid md:grid-cols-2 gap-4">
         <div class="border border-theme-border p-4 rounded hover-glow">
-          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-teal">▸</span> Privacy-First Architecture</h3>
+          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-text-primary">▸</span> Privacy-First Architecture</h3>
           <ul class="text-sm text-theme-text-secondary space-y-1">
             <li>• 100% local processing</li>
             <li>• No cloud, no API keys</li>
@@ -109,7 +158,7 @@ cargo build --release
           </ul>
         </div>
         <div class="border border-theme-border p-4 rounded hover-glow">
-          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-teal">▸</span> Real-Time Transcription</h3>
+          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-text-primary">▸</span> Real-Time Transcription</h3>
           <ul class="text-sm text-theme-text-secondary space-y-1">
             <li>• Live preview while speaking</li>
             <li>• Push-to-talk control</li>
@@ -118,7 +167,7 @@ cargo build --release
           </ul>
         </div>
         <div class="border border-theme-border p-4 rounded hover-glow">
-          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-teal">▸</span> Smart Quality</h3>
+          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-text-primary">▸</span> Smart Quality</h3>
           <ul class="text-sm text-theme-text-secondary space-y-1">
             <li>• No-speech detection</li>
             <li>• Temperature fallback decoding</li>
@@ -127,7 +176,7 @@ cargo build --release
           </ul>
         </div>
         <div class="border border-theme-border p-4 rounded hover-glow">
-          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-teal">▸</span> Performance Optimized</h3>
+          <h3 class="text-theme-text-primary font-semibold mb-2 flex items-center gap-2"><span class="text-theme-text-primary">▸</span> Performance Optimized</h3>
           <ul class="text-sm text-theme-text-secondary space-y-1">
             <li>• GPU acceleration (Metal/CUDA)</li>
             <li>• Quantized model support</li>
@@ -140,7 +189,7 @@ cargo build --release
 
     <section class="terminal-border bg-theme-bg-dark p-6 rounded-lg">
       <h2 class="text-xl md:text-2xl font-semibold text-theme-text-primary mb-4">$ cat motivation.txt</h2>
-      <p class="text-theme-text-primary leading-relaxed text-sm">Built to create a fast, private dictation workflow using the fewest dependencies possible, entirely in Rust. Audio capture, ML inference, concurrency orchestration, and a responsive terminal UI—all local, no accounts required.</p>
+      <p class="text-theme-text-primary leading-relaxed text-sm">Built to create a fast, private dictation workflow using the fewest dependencies possible, entirely in Rust. Audio capture, ML inference, concurrency orchestration, and both a responsive terminal UI and modern desktop app—all local, no accounts required.</p>
     </section>
 
     <!-- Footer -->

@@ -57,36 +57,6 @@ The goal is a tool you can trust: local and no accounts. Choose the interface th
 - High-quality resampling via rubato (supports all device sample rates)
 - Auto mic rate (device default; prefers 48 kHz; caps high rates)
 
-**User Experience**
-
-**TUI (Terminal):**
-- Phased, non-blocking startup with a responsive terminal interface
-- Loading overlay with granular Whisper steps; press [esc] to cancel
-- Resumable model downloads with progress; press [esc] to pause, [backspace] to cancel (deletes partial)
-- Clear live info panel while dictating: mic, sink, time (session), model, language, words (session)
-- Config screen shows lifetime counters: total words and total talk time (persisted)
-- Audio feedback: gentle beeps on PTT press/release and successful transcription delivery
-
-**Desktop App (Beta)** 🎉
-- **Native desktop application** built with Tauri v2 + React + TypeScript
-  - Modern, responsive UI with smooth animations
-  - System tray integration with quick access menu
-  - Full feature parity with TUI version
-- **Listening Pill Overlay**: Bottom-center indicator with animated EQ bars showing real-time audio levels and VAD state
-  - **Toast Notifications**: Top-right notifications displaying transcription results
-    - Shows real-time preview text while speaking
-    - Displays final transcription with word count and output destination (paste/clipboard/file) after PTT release
-    - Sink branding flashes in background on final delivery
-- Always-on-top, non-intrusive overlays with smooth animations
-- **Comprehensive settings UI**
-  - General, AI, and VAD settings with real-time persistence
-  - Model management with download progress tracking
-  - Onboarding flow for first-time users
-- **System integration**
-  - macOS/Windows/Linux support
-  - Microphone and accessibility permission handling
-  - Configurable hotkeys (control+option, control+shift)
-
 ## 🚀 Quick Start
 
 ### Desktop App (Beta) 🎉
@@ -151,7 +121,7 @@ cargo build --release
 cargo install --git https://github.com/hate/keyless --package keyless --locked
 
 # Or pin a release tag
-cargo install --git https://github.com/hate/keyless --tag v0.3.0 --package keyless --locked
+cargo install --git https://github.com/hate/keyless --tag tui-v0.3.0 --package keyless --locked
 
 # Update existing install
 cargo install --git https://github.com/hate/keyless --package keyless --locked --force
@@ -166,16 +136,15 @@ Note: CUDA is an optional feature flag on the same install; use `--features cuda
 **First run:** Downloads Whisper model 
 **Usage:** Press Control+Option (configurable) to start dictating
 
-## 📸 Screenshots
+## 📸 Demos
+
+**Desktop App (Beta):**
+
+![Desktop app demo](assets/keylessDESKTOP.gif)
 
 **TUI (Terminal) Version:**
-- **Configuration View:** Model selection, output mode, and settings
-- **Running View:** Real-time transcription with EQ visualization
 
-![Configuration screen](assets/config.png)
-![Transcription demo](assets/transcribe.png)
-
-**Desktop App:** See the [Desktop App Guide](keyless-desktop/README.md) for screenshots and UI details.
+![TUI demo](assets/keylessTUI.gif)
 
 ## 🔧 How It Works
 

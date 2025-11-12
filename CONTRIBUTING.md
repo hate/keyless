@@ -222,6 +222,59 @@ fn test_file_write() -> Result<(), Box<dyn std::error::Error>> {
 
 ---
 
+## Releases
+
+Releases are automated via GitHub Actions workflows that trigger on git tags.
+
+### Release Types
+
+- **TUI releases**: Tag format `tui-v*` (e.g., `tui-v0.3.0`)
+- **Desktop releases**: Tag format `desktop-v*` (e.g., `desktop-v0.3.0`)
+
+### Creating a Release
+
+1. **Update versions** in all relevant files:
+   - `Cargo.toml` (workspace version)
+   - `keyless-desktop/src-tauri/Cargo.toml` (desktop package version)
+   - `keyless-desktop/src-tauri/tauri.conf.json` (desktop app version)
+
+2. **Update CHANGELOG.md** with the new version and changes
+
+3. **Commit version changes**:
+   ```bash
+   git add Cargo.toml keyless-desktop/src-tauri/Cargo.toml keyless-desktop/src-tauri/tauri.conf.json CHANGELOG.md
+   git commit -m "chore: bump version to X.Y.Z"
+   ```
+
+4. **Create and push the tag**:
+   ```bash
+   # For TUI release
+   git tag tui-v0.3.0
+   git push origin tui-v0.3.0
+   
+   # For Desktop release
+   git tag desktop-v0.3.0
+   git push origin desktop-v0.3.0
+   
+   # Or both
+   git tag tui-v0.3.0 desktop-v0.3.0
+   git push origin tui-v0.3.0 desktop-v0.3.0
+   ```
+
+5. **GitHub Actions will automatically**:
+   - Build binaries/installers for all platforms
+   - Create a GitHub Release with artifacts attached
+   - Use the tag name as the release name
+
+### Versioning
+
+We follow [Semantic Versioning](https://semver.org/):
+- **MAJOR** (X.0.0): Breaking changes
+- **MINOR** (0.X.0): New features, backwards compatible
+- **PATCH** (0.0.X): Bug fixes, backwards compatible
+
+---
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
