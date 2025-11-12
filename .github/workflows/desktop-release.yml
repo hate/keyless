@@ -88,9 +88,9 @@ jobs:
           name: Keyless Desktop ${{ github.ref_name }}
           body: |
             ## Keyless Desktop Release
-            
+
             Desktop application version of Keyless with GUI.
-            
+
             Download the installer for your platform:
             - Linux: `.deb` or `.rpm` package
             - macOS: `.dmg` installer

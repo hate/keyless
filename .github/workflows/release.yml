@@ -81,9 +81,9 @@ jobs:
           name: Keyless TUI ${{ github.ref_name }}
           body: |
             ## Keyless TUI Release
-            
+
             Command-line terminal UI version of Keyless.
-            
+
             Download the binary for your platform:
             - Linux: `keyless-linux-x86_64`
             - macOS (Intel): `keyless-macos-x86_64`
