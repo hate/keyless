@@ -18,19 +18,6 @@ mod linux {
         Other,
     }
 
-    /// Detected init system on Linux.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub enum InitSystem {
-        /// systemd init system.
-        Systemd,
-        /// OpenRC init system.
-        OpenRc,
-        /// runit init system.
-        Runit,
-        /// Other or unknown init system.
-        Other,
-    }
-
     /// Detect the current desktop environment.
     ///
     /// Checks the `XDG_CURRENT_DESKTOP` and `XDG_SESSION_DESKTOP` environment variables,
@@ -81,51 +68,6 @@ mod linux {
         }
 
         DesktopEnvironment::Other
-    }
-
-    /// Detect the current init system.
-    ///
-    /// Checks for systemd by looking for `/run/systemd/system` or `systemctl` command.
-    /// Checks for OpenRC by looking for `/run/openrc` or `openrc-status` command.
-    /// Checks for runit by looking for `/run/runit` or `runit` command.
-    ///
-    /// Returns `InitSystem::Other` if detection fails.
-    pub fn detect_init_system() -> InitSystem {
-        // Check for systemd (most common).
-        // Check paths first (faster), then fall back to which command.
-        if std::path::Path::new("/run/systemd/system").exists()
-            || std::path::Path::new("/usr/lib/systemd").exists()
-        {
-            return InitSystem::Systemd;
-        }
-        // Check for systemctl command (more reliable detection).
-        if which::which("systemctl").is_ok() {
-            return InitSystem::Systemd;
-        }
-
-        // Check for OpenRC (Gentoo, Alpine, etc.).
-        if std::path::Path::new("/run/openrc").exists()
-            || std::path::Path::new("/etc/init.d").exists()
-        {
-            return InitSystem::OpenRc;
-        }
-        // Check for openrc-status command.
-        if which::which("openrc-status").is_ok() {
-            return InitSystem::OpenRc;
-        }
-
-        // Check for runit (Void Linux, etc.).
-        if std::path::Path::new("/run/runit").exists()
-            || std::path::Path::new("/etc/runit").exists()
-        {
-            return InitSystem::Runit;
-        }
-        // Check for runit command.
-        if which::which("runit").is_ok() {
-            return InitSystem::Runit;
-        }
-
-        InitSystem::Other
     }
 
     /// Get the system settings command for a given desktop environment and pane.
