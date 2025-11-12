@@ -62,12 +62,27 @@ jobs:
       - name: Build desktop (release)
         run: pnpm -C keyless-desktop tauri build --target ${{ matrix.target }}
 
+      - name: Prepare bundle artifacts
+        shell: bash
+        run: |
+          mkdir -p bundle-artifacts
+          # Find and copy all installer files
+          find keyless-desktop/src-tauri/target -type f \( -name "*.dmg" -o -name "*.msi" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) -exec cp {} bundle-artifacts/ \;
+          # Also try the expected bundle directory structure
+          if [ -d "keyless-desktop/src-tauri/target/${{ matrix.target }}/release/bundle" ]; then
+            cp -r keyless-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/* bundle-artifacts/ 2>/dev/null || true
+          fi
+          if [ -d "keyless-desktop/src-tauri/target/release/bundle" ]; then
+            cp -r keyless-desktop/src-tauri/target/release/bundle/* bundle-artifacts/ 2>/dev/null || true
+          fi
+          ls -lh bundle-artifacts/ || echo "No bundle artifacts found"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.artifact }}
-          path: |
-            keyless-desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**
+          path: bundle-artifacts/**
+          if-no-files-found: warn
 
   release:
     name: Create Desktop App Release
