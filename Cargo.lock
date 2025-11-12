@@ -5750,7 +5750,7 @@ dependencies = [
 [[package]]
 name = "rdev"
 version = "0.5.3"
-source = "git+https://github.com/hate/rdev?branch=macos-no-key-names#5a54189ac3e7a172f8f4d4566f4eecf2932527ee"
+source = "git+https://github.com/hate/rdev?branch=macos-no-key-names#f2aa1684467ef2fa5e0cc20dfb18de78417c8f27"
 dependencies = [
  "core-foundation 0.10.1",
  "core-foundation-sys",
