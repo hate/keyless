@@ -133,28 +133,10 @@ pub fn render_expert(f: &mut ratatui::Frame, full: Rect, app: &AppState) {
         ])
         .split(inner);
 
-    let label = |name: &str| Span::styled(name.to_string(), Theme::label());
-    let val = |s: String, selected: bool| {
-        // Highlight selected param with success color + bold for quick focus scan.
-        let base = if selected {
-            Colors::success()
-        } else {
-            Colors::text_primary()
-        };
-        let style = if selected {
-            Style::default().fg(base).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(base)
-        };
-        Span::styled(s, style)
-    };
-
-    // EQ framed section
-    // Title mirrors current selection; single source of truth via `expert.selected`.
-    let selected_label = expert.selected.name();
+    // Framed section
     let eq_frame = Block::default()
         .title(Span::styled(
-            format!("eq tuning — selected: {}", selected_label),
+            "expert mode help",
             Style::default()
                 .fg(Colors::accent_dim())
                 .add_modifier(Modifier::BOLD),
@@ -171,73 +153,87 @@ pub fn render_expert(f: &mut ratatui::Frame, full: Rect, app: &AppState) {
     eq_inner.width = eq_inner.width.saturating_sub(2);
     eq_inner.height = eq_inner.height.saturating_sub(2);
 
-    let eq_rows = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Length(1),
-        ])
-        .split(eq_inner);
-
-    let lines: [Line; 6] = [
+    // Help text: document expert hotkeys
+    let lines = vec![
         Line::from(vec![
-            label("bands: "),
-            val(
-                format!("{}", app.eq_tuning.bands),
-                expert.selected == EqParameter::Bands,
+            Span::styled(
+                "x",
+                Style::default()
+                    .fg(Colors::success())
+                    .add_modifier(Modifier::BOLD),
             ),
+            Span::styled(" — open expert mode (from settings)", Theme::text_primary()),
         ]),
         Line::from(vec![
-            label("noise reduction: "),
-            val(
-                // 2 decimals for NR factor; assumed unitless scalar.
-                format!("{:.2}", app.eq_tuning.noise_reduction),
-                expert.selected == EqParameter::NoiseReduction,
+            Span::styled(
+                "esc",
+                Style::default()
+                    .fg(Colors::success())
+                    .add_modifier(Modifier::BOLD),
             ),
+            Span::styled(" — close expert mode", Theme::text_primary()),
         ]),
         Line::from(vec![
-            label("window dB: "),
-            val(
-                // 1 decimal for dB threshold; value interpreted on a logarithmic scale.
-                format!("{:.1}", app.eq_tuning.window_db),
-                expert.selected == EqParameter::WindowDb,
+            Span::styled(
+                "o",
+                Style::default()
+                    .fg(Colors::success())
+                    .add_modifier(Modifier::BOLD),
             ),
+            Span::styled(" — open config folder", Theme::text_primary()),
         ]),
         Line::from(vec![
-            label("gamma: "),
-            val(
-                // 2 decimals for gamma shaping of spectral weights.
-                format!("{:.2}", app.eq_tuning.gamma),
-                expert.selected == EqParameter::Gamma,
+            Span::styled(
+                "r",
+                Style::default()
+                    .fg(Colors::success())
+                    .add_modifier(Modifier::BOLD),
             ),
+            Span::styled(" — reset config to defaults (then ", Theme::text_primary()),
+            Span::styled(
+                "y",
+                Style::default()
+                    .fg(Colors::amber())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("/", Theme::text_primary()),
+            Span::styled(
+                "n",
+                Style::default()
+                    .fg(Colors::error_pink())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" to confirm)", Theme::text_primary()),
         ]),
         Line::from(vec![
-            label("attack: "),
-            val(
-                // 2 decimals for attack time constant (seconds).
-                format!("{:.2}", app.eq_tuning.attack),
-                expert.selected == EqParameter::Attack,
+            Span::styled(
+                "d",
+                Style::default()
+                    .fg(Colors::success())
+                    .add_modifier(Modifier::BOLD),
             ),
-        ]),
-        Line::from(vec![
-            label("decay: "),
-            val(
-                // 2 decimals for decay time constant (seconds).
-                format!("{:.2}", app.eq_tuning.decay),
-                expert.selected == EqParameter::Decay,
+            Span::styled(
+                " — delete all downloaded models (then ",
+                Theme::text_primary(),
             ),
+            Span::styled(
+                "y",
+                Style::default()
+                    .fg(Colors::amber())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("/", Theme::text_primary()),
+            Span::styled(
+                "n",
+                Style::default()
+                    .fg(Colors::error_pink())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(" to confirm)", Theme::text_primary()),
         ]),
     ];
-
-    for (i, line) in lines.into_iter().enumerate() {
-        // Each row is exactly one terminal line to prevent wrapping inside the EQ frame.
-        let p = Paragraph::new(line).alignment(Alignment::Left);
-        f.render_widget(p, eq_rows[i]);
-    }
+    let help = Paragraph::new(lines).alignment(Alignment::Left);
+    f.render_widget(help, eq_inner);
 
     // Confirmation overlay
     if expert.confirm_reset {

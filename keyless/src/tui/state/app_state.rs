@@ -2,7 +2,7 @@
 
 use super::{ModelCatalog, Overlays, RuntimeFeedback, Selections};
 use keyless_audio::input::list_input_devices;
-use keyless_core::config::{EqTuning, OutputMode, VadThresholds, storage};
+use keyless_core::config::{OutputMode, VadThresholds, storage};
 
 use crate::overrides::{Overrides, apply_overrides};
 
@@ -34,8 +34,6 @@ pub struct AppState {
     pub selections: Selections,
     /// VAD thresholds (start/stop dB, timing).
     pub vad: VadThresholds,
-    /// EQ tuning parameters (bands, noise reduction, gamma, attack/decay).
-    pub eq_tuning: EqTuning,
     /// Runtime feedback (logs, spectrum, VAD state, preview text).
     pub feedback: RuntimeFeedback,
     /// Model catalog (runtime list, discovered, sizes).
@@ -147,7 +145,6 @@ impl AppState {
             screen: Screen::Config,
             selections,
             vad,
-            eq_tuning: defaults.eq,
             feedback: RuntimeFeedback::new(),
             models: ModelCatalog::new(),
             overlays: Overlays::new(),

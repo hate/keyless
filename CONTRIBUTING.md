@@ -108,17 +108,30 @@ Then open PR on GitHub.
 - ✅ Use `KeylessError` for errors
 - ✅ Use `tracing` for logging
 - ✅ Add tests for new features
-- ✅ Document public APIs
+- ✅ Document public APIs (rustdoc/JSDoc)
+- ✅ Add inline comments for complex logic (Rust and TypeScript)
 
 ### Documentation Style
 
-We enforce workspace-wide rustdoc standards:
+We enforce comprehensive documentation across the codebase:
 
+**Rust (rustdoc):**
 - Crate/module headers use `//!` with purpose and relationships
 - All items (public and internal) use `///` with a first-line summary
 - Include sections where applicable:
   - Examples, Errors, Panics, Safety (Send/Sync/FFI), Threading/Blocking, Performance, Invariants
 - Prefer small compilable examples (doctests)
+
+**Rust (inline comments):**
+- Add inline comments (`//`) for complex logic, algorithms, and non-obvious code paths
+- Document thread-safety considerations, state management, and async boundaries
+- Explain business logic, state transitions, and error handling strategies
+
+**TypeScript/React (JSDoc + inline):**
+- File-level JSDoc headers (`/** */`) explaining component/hook purpose and usage
+- Inline comments (`//`) for complex logic, state management, and event handling
+- Document React hooks, state variables, effects, and event listeners
+- Explain business logic, async operations, and error handling
 
 Template:
 

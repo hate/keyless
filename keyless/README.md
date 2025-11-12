@@ -9,8 +9,8 @@ Full‑screen terminal UI that wires microphone audio → Whisper transcription 
 #### How it works (speech → text)
 - While you hold the PTT hotkey, we capture 48 kHz mic audio and gate it with VAD so only speech enters the transcription buffer.
 - Audio is resampled to 16 kHz via rubato (supports all device sample rates) and accumulated as one "utterance" during the PTT hold.
-- Every ~0.2s we transcribe just the last ~2s of that buffer on a background thread and show a 4‑word preview (auto‑clears after 0.5s).
-- When you release PTT, we transcribe the entire utterance by walking it in ≤30s Whisper windows and concatenating the results, then deliver the Final to your selected sink. This mirrors Whisper's training context and avoids repetition artifacts.
+- **Preview**: Every ~120–200 ms, we run the same voiced‑mask pipeline on the current buffer (≤10s units with 0.5s overlap), reusing cached unit texts via a ~128 ms tail hash. Preview text matches what Final would be now.
+- **Final**: When you release PTT, we split the utterance into voiced spans, process each as ≤10s units with overlap, stitch units together with dedupe, and deliver the Final to your selected sink. This prevents empty Finals on long dictations and improves accuracy.
 
 #### Model Recommendations
 - **Both multilingual and `.en` models are supported**
@@ -34,7 +34,7 @@ Full‑screen terminal UI that wires microphone audio → Whisper transcription 
 - Error display on invalid config or missing devices (stays on Config)
 - VAD gating (start/stop dB, min duration, silence hangover) via `keyless-audio::VadGate`
 - EQ spectrum visualization (FFT-based, log-spaced bands, auto-sensitivity via max normalization) via `keyless-audio::compute_bars()`
-- Preview text display: shows last 4 recognized words at bottom of visualizer for immediate feedback
+- Preview text display: shows full preview text at top of visualizer (truncated to screen width if needed) for immediate feedback while speaking
 - Permissions UX: shows mic/accessibility guidance; proactively warns if macOS Accessibility is not granted for Paste sink
 
 ### Technologies
@@ -159,7 +159,7 @@ Dictating screen:
 - Center: EQ‑style audio visualizer (non‑scrolling)
   - 64 log‑spaced bars across the full width; thin columns (▎)
   - FFT: 1024‑point real FFT with Hann window and auto-sensitivity normalization
-  - Preview text: last 4 recognized words displayed at bottom of visualizer
+  - Preview text: full preview text displayed at top of visualizer (truncated to screen width if needed)
   - Auto-sensitivity: bars normalized against max magnitude for consistent heights
   - Attack (0.35) and decay (0.12) smoothing for fluid animation
   - Tunable via expert mode: noise reduction, gamma curve, window dB, attack/decay

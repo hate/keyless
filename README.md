@@ -29,9 +29,10 @@ I built keyless to create a fast, private dictation workflow I can rely on every
 - On‑device ML inference in `keyless-whisper` (Candle/Whisper model loading, tokenizer, quantized GGUF support)
 - Concurrency and orchestration in `keyless-runtime` (mpsc channels, phased startup artifacts, non‑Send `cpal::Stream` boundaries)
 - A responsive terminal UI in `keyless` (ratatui overlays, hotkeys, previews, logs)
+- A modern desktop app in `keyless-desktop` (Tauri v2 + React, system tray, overlay windows, full settings UI)
 - Robust downloads and configuration in `keyless-models` and `keyless-core` (reqwest resume/backoff, typed caches, serde config, `KeylessError`)
 
-The goal is a tool you can trust: local and no accounts.
+The goal is a tool you can trust: local and no accounts. Choose the interface that fits your workflow—terminal or desktop.
 
 ## ✨ Features
 
@@ -41,12 +42,12 @@ The goal is a tool you can trust: local and no accounts.
 - Open-source and auditable
 
 **Real-Time Transcription**
-- Live preview emitted about every ~100ms while speaking
+- Live preview mirrors the Final by running the same voiced‑mask pipeline incrementally (~120–200 ms cadence)
 - Push-to-talk for precise control
 - Full, high‑quality final transcription on release
 
 **Smart Quality**
-- No-speech detection (prevents hallucinations on silence)
+- Per‑unit silence‑drop (RMS + Whisper no_speech_prob) and overlap dedupe
 - Temperature fallback decoding
 - Language auto-detection (99 languages supported)
 - Quality metrics tracking (confidence, compression ratio)
@@ -57,21 +58,79 @@ The goal is a tool you can trust: local and no accounts.
 - Auto mic rate (device default; prefers 48 kHz; caps high rates)
 
 **User Experience**
-- Phased, non-blocking startup with a responsive TUI
+
+**TUI (Terminal):**
+- Phased, non-blocking startup with a responsive terminal interface
 - Loading overlay with granular Whisper steps; press [esc] to cancel
 - Resumable model downloads with progress; press [esc] to pause, [backspace] to cancel (deletes partial)
- - Clear live info panel while dictating: mic, sink, time (session), model, language, words (session)
- - Config screen shows lifetime counters: total words and total talk time (persisted)
- - Audio feedback: gentle beeps on PTT press/release and successful transcription delivery
+- Clear live info panel while dictating: mic, sink, time (session), model, language, words (session)
+- Config screen shows lifetime counters: total words and total talk time (persisted)
+- Audio feedback: gentle beeps on PTT press/release and successful transcription delivery
+
+**Desktop App (Beta)** 🎉
+- **Native desktop application** built with Tauri v2 + React + TypeScript
+  - Modern, responsive UI with smooth animations
+  - System tray integration with quick access menu
+  - Full feature parity with TUI version
+- **Listening Pill Overlay**: Bottom-center indicator with animated EQ bars showing real-time audio levels and VAD state
+  - **Toast Notifications**: Top-right notifications displaying transcription results
+    - Shows real-time preview text while speaking
+    - Displays final transcription with word count and output destination (paste/clipboard/file) after PTT release
+    - Sink branding flashes in background on final delivery
+- Always-on-top, non-intrusive overlays with smooth animations
+- **Comprehensive settings UI**
+  - General, AI, and VAD settings with real-time persistence
+  - Model management with download progress tracking
+  - Onboarding flow for first-time users
+- **System integration**
+  - macOS/Windows/Linux support
+  - Microphone and accessibility permission handling
+  - Configurable hotkeys (control+option, control+shift)
 
 ## 🚀 Quick Start
 
+### Desktop App (Beta) 🎉
+
+**Download desktop app:**
+[Releases](https://github.com/hate/keyless/releases) - Look for `keyless-desktop-*` assets
+
+**Build desktop app from source:**
+
+**Prerequisites:**
+- [Node.js](https://nodejs.org/) (LTS version recommended)
+- [pnpm](https://pnpm.io/) (version 10+)
+- [Rust](https://www.rust-lang.org/) (stable toolchain)
+- [Tauri CLI](https://tauri.app/v1/guides/getting-started/prerequisites) - Install with `cargo install tauri-cli` or `pnpm add -D @tauri-apps/cli`
+
+**Build steps:**
+```bash
+git clone https://github.com/hate/keyless.git
+cd keyless/keyless-desktop
+
+# Install dependencies
+pnpm install
+
+# Development mode
+pnpm tauri dev
+
+# Build release
+pnpm tauri build
+```
+
+**First run:** 
+- Grant microphone and accessibility permissions when prompted
+- Download a Whisper model from the Models screen
+- Configure your hotkey and output mode in Settings
+- Press your configured hotkey to start dictating
+
+**Note**: On macOS, Accessibility permission is required for paste mode (keystroke simulation) and global hotkey detection. The app will guide you through granting permissions on first launch.
+
+### TUI (Terminal) Version
+
 **Download binary:**
-[Releases](https://github.com/hate/keyless/releases)
+[Releases](https://github.com/hate/keyless/releases) - Look for `keyless-*` assets (not desktop)
 ```bash
 # Download from releases page
-# (or click the Releases link above)
-
 # Extract and run
 ./keyless  # macOS/Linux
 # or
@@ -92,7 +151,7 @@ cargo build --release
 cargo install --git https://github.com/hate/keyless --package keyless --locked
 
 # Or pin a release tag
-cargo install --git https://github.com/hate/keyless --tag v0.1.0 --package keyless --locked
+cargo install --git https://github.com/hate/keyless --tag v0.3.0 --package keyless --locked
 
 # Update existing install
 cargo install --git https://github.com/hate/keyless --package keyless --locked --force
@@ -109,22 +168,28 @@ Note: CUDA is an optional feature flag on the same install; use `--features cuda
 
 ## 📸 Screenshots
 
-**Configuration View:**
-![Configuration screen](assets/config.png)
+**TUI (Terminal) Version:**
+- **Configuration View:** Model selection, output mode, and settings
+- **Running View:** Real-time transcription with EQ visualization
 
-**Running View:**
+![Configuration screen](assets/config.png)
 ![Transcription demo](assets/transcribe.png)
+
+**Desktop App:** See the [Desktop App Guide](keyless-desktop/README.md) for screenshots and UI details.
 
 ## 🔧 How It Works
 
+Both the TUI and Desktop app share the same core audio processing pipeline. The only difference is the user interface layer—the TUI uses a terminal-based interface while the Desktop app uses a modern GUI with overlays.
+
 ### High-Level Flow
 
-keyless uses a **multi-threaded pipeline** to process your voice in real-time:
+keyless uses a **multi-threaded pipeline** to process your voice in real-time (shared by both TUI and Desktop):
 
 1. **Capture** - Microphone capture (auto: device default; prefers 48 kHz; caps high rates)
 2. **Process** - Automatic resample to 16 kHz with rubato, VAD gate, EQ analysis  
-3. **Transcribe** - Whisper converts speech to text
-4. **Deliver** - Text appears in your app (paste/clipboard/file)
+3. **Transcribe (Preview)** - Every ~120–200 ms, run the same voiced‑mask pipeline on the current buffer (≤10s units, 0.5s overlap), reusing cached unit texts via a ~128 ms tail hash; preview text matches what Final would be now
+4. **Transcribe (Final)** - On release, run the same unitized pipeline on the full segment; stitch units with overlap dedupe; per‑unit silence‑drop prevents stray boilerplate
+5. **Deliver** - Text appears in your app (paste/clipboard/file)
 
 All processing happens on your device using Rust and Candle ML.
 
@@ -179,7 +244,7 @@ All processing happens on your device using Rust and Candle ML.
 **Process:**
 - Uses device default input rate automatically; prefers 48 kHz when available; caps excessively high defaults (e.g., ≤48 kHz)
 - Produces ~100 ms frames (computed from the chosen sample rate)
-- Bounded channel (capacity: 512 frames) introduces backpressure to prevent unbounded memory; realtime callback uses non-blocking try_send so audio never blocks (overflow frames may be dropped)
+- Bounded channel (capacity: 64 frames) introduces backpressure to prevent unbounded memory; realtime callback uses non-blocking try_send so audio never blocks (overflow frames may be dropped)
 
 **Why prefer/cap around 48 kHz?**
 - Many microphones support 48 kHz and it offers smoother EQ visualization
@@ -207,7 +272,7 @@ All processing happens on your device using Rust and Candle ML.
 - Tunable parameters: noise reduction, gamma curve, window scaling
 
 **VAD (Voice Activity Detection):**
-- Hysteresis‑based gate (start: −30 dBFS RMS, stop: −35 dBFS RMS)
+- Hysteresis‑based gate (default: start: −45 dBFS RMS, stop: −50 dBFS RMS; configurable)
 - Minimum duration (200 ms) prevents brief clicks
 - Maximum silence (800 ms) allows natural pauses
 - Prevents Whisper from receiving silence/background noise
@@ -225,21 +290,22 @@ All processing happens on your device using Rust and Candle ML.
 **Pipeline:**
 1. **Preprocessing:**
    - Convert 16kHz PCM → Mel spectrogram (80 mel bins)
-   - 30-second context windows (Whisper's native size)
+   - **Voiced span unitization**: Split audio into ≤10s voiced units with 0.5s overlap using hysteresis-based detection
+   - Mel frames capped to `2 × max_source_positions` to prevent encoder panics
 
 2. **Encoder:**
    - Processes mel spectrogram → audio features
-   - Runs once per window (cached for language detection)
+   - Runs once per unit (cached for language detection and preview reuse)
 
 3. **Decoder (Autoregressive):**
    - Token generation with temperature-based sampling
-   - No-speech detection on first iteration
+   - Per-unit silence-drop (RMS + `no_speech_prob`) prevents hallucinations
    - Temperature fallback (tries 0.0, 0.2, ..., 1.0 until quality acceptable)
    - Quality metrics: avg_logprob, compression_ratio
 
 4. **Post-processing:**
    - Filter special tokens (SOT, EOT, language tags)
-   - Skip segments with no_speech_prob > 0.6
+   - Stitch units together with overlap dedupe
    - Deliver Final event to output sink
 
 **Performance Optimizations:**
@@ -276,11 +342,11 @@ All processing happens on your device using Rust and Candle ML.
 **Channel-based communication:**
 ```rust
 pub struct PipelineChannels {
-    pub tx_level: SyncSender<u16>,      // RMS level → TUI
-    pub tx_log: SyncSender<String>,     // Logs → TUI
-    pub tx_spec: SyncSender<Vec<u16>>,  // EQ bars → TUI
-    pub tx_preview: SyncSender<String>, // Preview text → TUI
-    pub tx_vad: SyncSender<bool>,       // VAD state → TUI
+    pub tx_level: SyncSender<u16>,      // RMS level → TUI/Desktop
+    pub tx_log: SyncSender<String>,     // Logs → TUI/Desktop
+    pub tx_spec: SyncSender<Vec<u16>>,  // EQ bars → TUI/Desktop
+    pub tx_preview: SyncSender<String>, // Preview text → TUI/Desktop
+    pub tx_vad: SyncSender<bool>,       // VAD state → TUI/Desktop
 }
 ```
 
@@ -322,6 +388,9 @@ pub enum KeylessError {
 ```
 keyless/
 ├── keyless/              # TUI binary (Ratatui-based terminal interface)
+├── keyless-desktop/      # Desktop app (Tauri v2 + React + TypeScript) [Beta]
+│   ├── src/              # React frontend (components, hooks, views, utils)
+│   └── src-tauri/        # Rust backend (IPC commands, services, runtime)
 ├── keyless-whisper/      # Whisper engine (Candle ML, model loading, inference)
 ├── keyless-audio/        # Audio capture (cpal, VAD, EQ spectrum, SFX)
 ├── keyless-output/       # Output sinks (paste, clipboard, file)
@@ -348,6 +417,17 @@ keyless/
 **TUI:**
 - [ratatui](https://github.com/ratatui/ratatui) - Terminal UI framework
 - [crossterm](https://github.com/crossterm-rs/crossterm) - Terminal manipulation
+
+**Desktop:**
+- [Tauri v2](https://tauri.app/) - Cross-platform desktop app framework
+- [React](https://react.dev/) - UI library
+- [TypeScript](https://www.typescriptlang.org/) - Type-safe JavaScript
+- [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
+- [Vite](https://vitejs.dev/) - Build tool and dev server
+
+**Hotkeys:**
+- [rdev](https://github.com/Narsil/rdev) - Global keyboard event listening (PTT)
+  - Custom fork with macOS key-name generation disabled to prevent crashes
 
 **Output:**
 - [arboard](https://github.com/1Password/arboard) - Clipboard access
@@ -379,8 +459,13 @@ cargo clippy --all-targets -- -D warnings
 # Test
 cargo test --workspace
 
-# Build release
+# Build TUI release
 cargo build --release
+
+# Build desktop app (requires Node.js and pnpm)
+cd keyless-desktop
+pnpm install
+pnpm tauri build
 ```
 
 
@@ -396,10 +481,11 @@ cargo build --release
 ## 📚 Documentation
 
 - [Website](https://keyless.sh) - Project website built with [Zola](https://www.getzola.org/) static site generator
-- [TUI Usage & Troubleshooting](keyless/README.md)
-- [Whisper Implementation Details](keyless-whisper/README.md)
-- [Contributing Guide](CONTRIBUTING.md)
-- [Changelog](CHANGELOG.md)
+- [TUI Usage & Troubleshooting](keyless/README.md) - Terminal interface guide
+- [Desktop App Guide](keyless-desktop/README.md) - Desktop app documentation (Beta)
+- [Whisper Implementation Details](keyless-whisper/README.md) - ML engine technical docs
+- [Contributing Guide](CONTRIBUTING.md) - Development standards and workflow
+- [Changelog](CHANGELOG.md) - Version history and release notes
 
 Documentation standards are enforced in CI:
 - rustdoc warnings as errors (RUSTDOCFLAGS="-D warnings")

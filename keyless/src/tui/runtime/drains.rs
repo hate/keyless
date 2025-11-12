@@ -53,20 +53,16 @@ pub fn drain_channels(ctx: &mut RuntimeContext) {
         }
         // Clone line since we need it for word counting and paste guard checks.
         ctx.app.feedback.logs.push_back(line.clone());
-        // Count words on Final events and persist lifetime total.
-        // "Final: " prefix indicates completed transcription ready for output.
-        if let Some(text) = line.strip_prefix("Final: ") {
-            // Split by whitespace and count; cast to u64 for counter (u64 overflow unlikely).
-            let words = text.split_whitespace().count() as u64;
-            if words > 0 {
-                // Saturating_add prevents overflow; both counters are u64.
-                ctx.app.feedback.session_words =
-                    ctx.app.feedback.session_words.saturating_add(words);
-                ctx.app.lifetime_words = ctx.app.lifetime_words.saturating_add(words);
-                // Persist config immediately after word count update to save progress.
-                let config = build_config_from_app(&ctx.app);
-                let _ = storage::save_config(&config);
-            }
+        // Count words from "Words: N" messages.
+        if let Some(n) = line.strip_prefix("Words: ")
+            && let Ok(words) = n.trim().parse::<u64>()
+            && words > 0
+        {
+            ctx.app.feedback.session_words = ctx.app.feedback.session_words.saturating_add(words);
+            ctx.app.lifetime_words = ctx.app.lifetime_words.saturating_add(words);
+            // Persist config immediately after word count update to save progress.
+            let config = build_config_from_app(&ctx.app);
+            let _ = storage::save_config(&config);
         }
         // Paste guard: when a Final is delivered, the Paste sink may type into the terminal.
         // If the terminal is focused, those characters can trigger our own hotkeys.
@@ -255,7 +251,7 @@ pub fn drain_download_events(ctx: &mut RuntimeContext) -> DrainResult {
                 .get(dl_ctx.pending_device_idx)
                 .cloned();
             let config = dl_ctx.pending_config.clone();
-            let eq_tuning = ctx.app.eq_tuning.clone();
+            let eq_tuning = config.eq.clone();
             let vad = ctx.app.vad.clone();
             // Spawn startup worker: loads model, probes device, initializes GPU/CPU backend.
             // Returns receiver for phased startup events (PhaseStarted, PhaseOk, Ready, etc.).

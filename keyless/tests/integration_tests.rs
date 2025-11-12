@@ -15,7 +15,7 @@ use keyless_output::{DefaultOutputProvider, FileSink, OutputSinkProvider};
 use keyless_whisper::WhisperConfig;
 
 #[test]
-fn test_config_to_file_sink_pipeline() -> Result<(), Box<dyn std::error::Error>> {
+fn config_to_file_sink_pipeline() -> Result<(), Box<dyn std::error::Error>> {
     // Test the full config → provider → sink → file write pipeline
 
     let temp_file = env::temp_dir().join("keyless-integration-test.txt");
@@ -48,7 +48,7 @@ fn test_config_to_file_sink_pipeline() -> Result<(), Box<dyn std::error::Error>>
 }
 
 #[test]
-fn test_file_sink_direct() -> Result<(), Box<dyn std::error::Error>> {
+fn file_sink_direct() -> Result<(), Box<dyn std::error::Error>> {
     // Test FileSink directly without going through the provider
 
     let temp_file = env::temp_dir().join("keyless-direct-sink-test.txt");
@@ -74,7 +74,7 @@ fn test_file_sink_direct() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_audio_config_matches_whisper_config() {
+fn audio_config_matches_whisper_config() {
     // Verify that AudioConfig and WhisperConfig can be created with compatible sample rates
 
     let audio_cfg = AudioConfig {
@@ -93,7 +93,7 @@ fn test_audio_config_matches_whisper_config() {
 }
 
 #[test]
-fn test_error_types_are_send_sync() {
+fn error_types_are_send_sync() {
     // Verify that our error type can be sent across threads (required for async)
 
     fn assert_send<T: Send>() {}
@@ -104,7 +104,7 @@ fn test_error_types_are_send_sync() {
 }
 
 #[test]
-fn test_output_sink_trait_is_object_safe() {
+fn output_sink_trait_is_object_safe() {
     // Verify that OutputSink can be used as a trait object (required for dynamic dispatch)
 
     let temp_file = env::temp_dir().join("keyless-trait-object-test.txt");

@@ -2,8 +2,6 @@
 
 use keyless_core::error::KeylessError;
 
-use crate::tui::config::expert::EqParameter;
-
 /// Modal overlay states for the TUI.
 pub struct Overlays {
     pub error_message: Option<KeylessError>,
@@ -42,7 +40,6 @@ impl DownloadState {
 /// Expert mode UI overlay (selection cursor and confirmations only).
 /// The actual EQ tuning lives in AppState and is always accessible.
 pub struct ExpertOverlay {
-    pub selected: EqParameter,
     pub confirm_reset: bool,
     pub confirm_purge: bool,
 }
@@ -50,8 +47,6 @@ pub struct ExpertOverlay {
 impl ExpertOverlay {
     pub fn new() -> Self {
         Self {
-            // Start with first parameter (Bands) selected when expert mode opens.
-            selected: EqParameter::Bands,
             confirm_reset: false,
             confirm_purge: false,
         }

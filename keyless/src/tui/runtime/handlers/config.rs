@@ -56,6 +56,11 @@ pub fn build_config_from_app(app: &AppState) -> Config {
         .get(app.selections.device_idx)
         .cloned();
 
+    // Load stored EQ tuning from config to preserve custom settings.
+    // Since AppState no longer tracks eq_tuning, we must retrieve it from storage.
+    // Fallback to default if config is missing or invalid (first run).
+    let stored_eq = storage::load_config().map(|c| c.eq).unwrap_or_default();
+
     // Clone owned data for Config; lifetime_words/talk_ms are Copy types (no clone needed).
     Config {
         version: keyless_core::config::storage::CURRENT_VERSION,
@@ -65,7 +70,7 @@ pub fn build_config_from_app(app: &AppState) -> Config {
         output_mode,
         vad: app.vad.clone(),
         device_name,
-        eq: app.eq_tuning.clone(),
+        eq: stored_eq,
         lifetime_words: app.lifetime_words,
         lifetime_talk_ms: app.lifetime_talk_ms,
     }

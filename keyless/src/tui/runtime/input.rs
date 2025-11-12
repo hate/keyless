@@ -8,7 +8,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use super::DownloadContext;
 use super::context::RuntimeContext;
 use super::handlers;
-use crate::tui::config::expert::EqParameter;
+// EqParameter no longer used for adjustments; keep expert overlay only.
 use crate::tui::state::{ExpertOverlay, Screen};
 use keyless_core::config::{Config, DEFAULT_MODEL_ID, storage};
 use keyless_models::DownloadEvent;
@@ -279,18 +279,6 @@ fn handle_expert_confirm_purge(
 /// Handle expert mode adjustments and navigation.
 fn handle_expert_mode(ctx: &mut RuntimeContext, key: &KeyEvent) -> std::io::Result<ControlFlow> {
     match key.code {
-        KeyCode::Up => {
-            // Navigate to previous EQ parameter (wraps around from Bands to Decay).
-            if let Some(expert) = ctx.app.overlays.expert.as_mut() {
-                expert.selected = expert.selected.prev();
-            }
-        }
-        KeyCode::Down => {
-            // Navigate to next EQ parameter (wraps around from Decay to Bands).
-            if let Some(expert) = ctx.app.overlays.expert.as_mut() {
-                expert.selected = expert.selected.next();
-            }
-        }
         KeyCode::Esc => {
             // Close expert mode overlay and return to normal Config screen.
             ctx.app.overlays.expert = None;
@@ -337,98 +325,10 @@ fn handle_expert_mode(ctx: &mut RuntimeContext, key: &KeyEvent) -> std::io::Resu
             ctx.log("confirm reset? y/n".to_string());
             return Ok(ControlFlow::Continue);
         }
-        KeyCode::Left | KeyCode::Right => {
-            // Adjust selected EQ parameter (decrease/increase).
-            handle_expert_adjust(ctx, key);
-        }
         // Ignore other keys in expert mode (no action defined).
         _ => {}
     }
     Ok(ControlFlow::Continue)
-}
-
-/// Adjust an EQ parameter in expert mode based on arrow keys.
-fn handle_expert_adjust(ctx: &mut RuntimeContext, key: &KeyEvent) {
-    // Detect shift modifier for coarse adjustment (larger steps).
-    let coarse = key
-        .modifiers
-        .contains(crossterm::event::KeyModifiers::SHIFT);
-    // Right = increase, Left = decrease.
-    let dir = matches!(key.code, KeyCode::Right);
-    // Step sizes: small (1.0) for fine, large (3.0) for coarse adjustment.
-    let (small, large) = (1.0f32, 3.0f32);
-    let step = if coarse { large } else { small };
-    // Clamp helper: ensures value stays within [lo, hi] bounds.
-    let clamp = |v: f32, lo: f32, hi: f32| v.max(lo).min(hi);
-
-    let Some(expert) = ctx.app.overlays.expert.as_mut() else {
-        return;
-    };
-
-    match expert.selected {
-        EqParameter::Bands => {
-            // Bands: adjust by 8 (fine) or 24 (coarse), clamped to [16, 128].
-            // Cast through i32 to handle negative delta safely.
-            let prev = ctx.app.eq_tuning.bands;
-            let delta = if dir { 8i32 } else { -8i32 } * if coarse { 3 } else { 1 };
-            let b = (ctx.app.eq_tuning.bands as i32 + delta).clamp(16, 128);
-            ctx.app.eq_tuning.bands = b as u16;
-            // Log when clamping occurs (reached min/max boundary).
-            if ctx.app.eq_tuning.bands != prev
-                && (ctx.app.eq_tuning.bands == 16 || ctx.app.eq_tuning.bands == 128)
-            {
-                ctx.log(format!("eq.bands clamped to {}", ctx.app.eq_tuning.bands));
-            }
-        }
-        EqParameter::NoiseReduction => {
-            // Noise reduction: step by step size, clamped to [0.0, 1.0] (unitless factor).
-            let next = clamp(
-                ctx.app.eq_tuning.noise_reduction + if dir { step } else { -step },
-                0.0,
-                1.0,
-            );
-            ctx.app.eq_tuning.noise_reduction = next;
-        }
-        EqParameter::WindowDb => {
-            // Window dB: step by 2x step size (faster adjustment), clamped to [10.0, 80.0] dB.
-            let next = clamp(
-                ctx.app.eq_tuning.window_db + if dir { 2.0 * step } else { -2.0 * step },
-                10.0,
-                80.0,
-            );
-            ctx.app.eq_tuning.window_db = next;
-        }
-        EqParameter::Gamma => {
-            // Gamma: step by 0.05 * step (fractional steps), clamped to [0.8, 2.0].
-            // Higher gamma emphasizes louder frequency bins.
-            let next = clamp(
-                ctx.app.eq_tuning.gamma + if dir { 0.05 * step } else { -0.05 * step },
-                0.8,
-                2.0,
-            );
-            ctx.app.eq_tuning.gamma = next;
-        }
-        EqParameter::Attack => {
-            // Attack: step by 0.05 * step (seconds), clamped to [0.05, 1.0] seconds.
-            // Attack time constant for envelope follower.
-            let next = clamp(
-                ctx.app.eq_tuning.attack + if dir { 0.05 * step } else { -0.05 * step },
-                0.05,
-                1.0,
-            );
-            ctx.app.eq_tuning.attack = next;
-        }
-        EqParameter::Decay => {
-            // Decay: step by 0.05 * step (seconds), clamped to [0.05, 1.0] seconds.
-            // Decay time constant for envelope follower.
-            let next = clamp(
-                ctx.app.eq_tuning.decay + if dir { 0.05 * step } else { -0.05 * step },
-                0.05,
-                1.0,
-            );
-            ctx.app.eq_tuning.decay = next;
-        }
-    }
 }
 
 /// Handle keys while on the Dictating screen.

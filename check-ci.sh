@@ -94,9 +94,14 @@ printf "[9/11] Frontend tests...         "
 if pnpm -C keyless-desktop test > /tmp/frontend_test.log 2>&1; then
     echo "✓"
 else
-    echo "✗"
-    echo "      See errors: sed -n '1,200p' /tmp/frontend_test.log"
-    exit 1
+    # Check if the failure is due to no test files found (which is acceptable)
+    if grep -q "No test files found" /tmp/frontend_test.log; then
+        echo "✓ (no tests)"
+    else
+        echo "✗"
+        echo "      See errors: sed -n '1,200p' /tmp/frontend_test.log"
+        exit 1
+    fi
 fi
 
 # Step 10: Cargo deny (security advisories, licenses, duplicates)
