@@ -111,4 +111,8 @@ impl OutputSink for PasteSink {
             }
         }
     }
+
+    fn label(&self) -> String {
+        "Paste".to_string()
+    }
 }

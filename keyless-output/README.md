@@ -12,6 +12,7 @@ Implements output sinks for delivering transcribed text. A provider selects the 
 - `FileSink` (append one line per Final)
 - `PasteSink` (enigo keystrokes)
 - `DefaultOutputProvider` maps `Config::output_mode` to a sink
+- All sinks implement `label()` method for self-describing output (used in runtime logs)
 
 ### Installation
 

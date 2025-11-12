@@ -5,7 +5,7 @@ use std::env;
 use std::path::PathBuf;
 
 #[test]
-fn test_default_config() {
+fn default_config() {
     let config = Config::default();
     assert_eq!(config.language, Some("en".to_string()));
     assert_eq!(config.hotkey, "control+option");
@@ -14,7 +14,7 @@ fn test_default_config() {
 }
 
 #[test]
-fn test_vad_thresholds_default() {
+fn vad_thresholds_default() {
     let vad = VadThresholds::default();
     assert_eq!(vad.start_db, -45.0);
     assert_eq!(vad.stop_db, -50.0);
@@ -23,7 +23,7 @@ fn test_vad_thresholds_default() {
 }
 
 #[test]
-fn test_config_validation_valid_language() {
+fn config_validation_valid_language() {
     let config = Config {
         language: Some("en".to_string()),
         ..Default::default()
@@ -44,7 +44,7 @@ fn test_config_validation_valid_language() {
 }
 
 #[test]
-fn test_config_validation_invalid_language() {
+fn config_validation_invalid_language() {
     let config = Config {
         language: Some("x".to_string()), // too short
         ..Default::default()
@@ -59,7 +59,7 @@ fn test_config_validation_invalid_language() {
 }
 
 #[test]
-fn test_config_validation_file_output_parent_missing() {
+fn config_validation_file_output_parent_missing() {
     let mut config = Config::default();
     let nonexistent_dir = env::temp_dir()
         .join("keyless-test-nonexistent-dir-12345")
@@ -71,7 +71,7 @@ fn test_config_validation_file_output_parent_missing() {
 }
 
 #[test]
-fn test_config_validation_file_output_parent_exists() {
+fn config_validation_file_output_parent_exists() {
     let mut config = Config::default();
     let temp_file = env::temp_dir().join("keyless-test-output.txt");
     config.output_mode = OutputMode::File(temp_file);
@@ -81,7 +81,7 @@ fn test_config_validation_file_output_parent_exists() {
 }
 
 #[test]
-fn test_output_mode_serde() -> Result<(), Box<dyn std::error::Error>> {
+fn output_mode_serde() -> Result<(), Box<dyn std::error::Error>> {
     // Test that OutputMode serializes/deserializes correctly
     let modes = vec![
         OutputMode::Paste,
@@ -98,7 +98,7 @@ fn test_output_mode_serde() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_config_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
+fn config_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::default();
     let json = serde_json::to_string(&config)?;
     let deserialized: Config = serde_json::from_str(&json)?;

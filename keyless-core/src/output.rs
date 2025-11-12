@@ -33,4 +33,7 @@ pub trait OutputSink: Send + Sync {
     /// Returns `KeylessError::Output` if delivery fails (e.g., clipboard locked,
     /// file permission denied).
     fn send_text(&self, text: &str) -> KeylessResult<()>;
+
+    /// Human-readable label for this sink (e.g., "Paste", "Clipboard", "File (/path)").
+    fn label(&self) -> String;
 }

@@ -75,4 +75,8 @@ impl OutputSink for FileSink {
             }
         }
     }
+
+    fn label(&self) -> String {
+        format!("File ({})", self.path.display())
+    }
 }

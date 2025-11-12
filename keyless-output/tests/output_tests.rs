@@ -7,7 +7,7 @@ use std::env;
 use std::fs;
 
 #[test]
-fn test_default_provider_clipboard() {
+fn default_provider_clipboard() {
     let config = Config {
         output_mode: OutputMode::Clipboard,
         ..Default::default()
@@ -21,7 +21,7 @@ fn test_default_provider_clipboard() {
 }
 
 #[test]
-fn test_default_provider_paste() {
+fn default_provider_paste() {
     let config = Config {
         output_mode: OutputMode::Paste,
         ..Default::default()
@@ -35,7 +35,7 @@ fn test_default_provider_paste() {
 }
 
 #[test]
-fn test_file_sink_write() -> Result<(), Box<dyn std::error::Error>> {
+fn file_sink_write() -> Result<(), Box<dyn std::error::Error>> {
     let temp_file = env::temp_dir().join("keyless-test-output.txt");
 
     // Clean up any existing file
@@ -62,7 +62,7 @@ fn test_file_sink_write() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_file_sink_creates_file() -> Result<(), Box<dyn std::error::Error>> {
+fn file_sink_creates_file() -> Result<(), Box<dyn std::error::Error>> {
     let temp_file = env::temp_dir().join("keyless-test-new-file.txt");
 
     // Ensure file doesn't exist
@@ -83,7 +83,7 @@ fn test_file_sink_creates_file() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_file_sink_append_mode() -> Result<(), Box<dyn std::error::Error>> {
+fn file_sink_append_mode() -> Result<(), Box<dyn std::error::Error>> {
     let temp_file = env::temp_dir().join("keyless-test-append.txt");
     let _ = fs::remove_file(&temp_file);
 

@@ -75,4 +75,8 @@ impl OutputSink for ClipboardSink {
             }
         }
     }
+
+    fn label(&self) -> String {
+        "Clipboard".to_string()
+    }
 }
