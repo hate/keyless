@@ -17,5 +17,9 @@ rdev = { version = "0.5", default-features = false }
 tracing = "0.1"
 smallvec = "1"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# Enable x11 feature for Linux (required by rdev)
+rdev = { version = "0.5", default-features = false, features = ["x11"] }
+
 [dev-dependencies]
 tempfile = "3"
