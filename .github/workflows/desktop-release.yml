@@ -85,7 +85,7 @@ jobs:
       - name: Create Desktop App release
         uses: softprops/action-gh-release@v2
         with:
-          name: keyless Desktop ${{ github.ref_name }}
+          name: keyless ${{ github.ref_name }}
           body: |
             ## keyless Desktop Release
 

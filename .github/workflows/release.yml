@@ -78,7 +78,7 @@ jobs:
       - name: Create TUI release
         uses: softprops/action-gh-release@v2
         with:
-          name: keyless TUI ${{ github.ref_name }}
+          name: keyless ${{ github.ref_name }}
           body: |
             ## keyless TUI Release
 
