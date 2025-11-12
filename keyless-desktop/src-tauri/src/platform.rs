@@ -4,7 +4,6 @@
 
 #[cfg(target_os = "linux")]
 mod linux {
-    use super::*;
 
     /// Detected desktop environment on Linux.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,7 +170,7 @@ mod linux {
 /// Platform-specific autostart launcher configuration.
 ///
 /// Returns the appropriate autostart launcher for the current platform.
-/// This function is called during Tauri plugin initialization.
+/// For Linux, uses MacosLauncher as placeholder (plugin handles platform detection internally).
 #[cfg(target_os = "macos")]
 pub fn get_autostart_launcher() -> tauri_plugin_autostart::MacosLauncher {
     tauri_plugin_autostart::MacosLauncher::LaunchAgent
@@ -183,28 +182,10 @@ pub fn get_autostart_launcher() -> tauri_plugin_autostart::WindowsLauncher {
 }
 
 #[cfg(target_os = "linux")]
-pub fn get_autostart_launcher() -> tauri_plugin_autostart::LinuxLauncher {
-    use linux::{InitSystem, detect_init_system};
-    let init = detect_init_system();
-    eprintln!("[platform] Detected init system: {:?}", init);
-
-    match init {
-        InitSystem::Systemd => {
-            eprintln!("[platform] Using systemd autostart launcher");
-            tauri_plugin_autostart::LinuxLauncher::Systemd
-        }
-        _ => {
-            eprintln!(
-                "[platform] WARNING: Autostart not supported for {:?} init system (only systemd is supported)",
-                init
-            );
-            eprintln!(
-                "[platform] Users on non-systemd systems will need to configure autostart manually"
-            );
-            // Still use Systemd launcher (will fail gracefully if systemd isn't available).
-            tauri_plugin_autostart::LinuxLauncher::Systemd
-        }
-    }
+pub fn get_autostart_launcher() -> tauri_plugin_autostart::MacosLauncher {
+    // Linux doesn't have LinuxLauncher in tauri-plugin-autostart v2.
+    // The plugin detects the platform internally, so we use MacosLauncher as placeholder.
+    tauri_plugin_autostart::MacosLauncher::LaunchAgent
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]

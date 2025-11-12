@@ -92,10 +92,40 @@ fn run_inner() -> KeylessResult<()> {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_autostart::init(
-            platform::get_autostart_launcher(),
-            Some(vec!["--hidden"]),
-        ))
+        .plugin({
+            #[cfg(target_os = "linux")]
+            {
+                // Linux doesn't have LinuxLauncher in tauri-plugin-autostart v2.
+                // The plugin handles Linux automatically without a launcher parameter.
+                // We still detect and log the init system for user information.
+                use keyless_desktop_lib::platform::linux::{InitSystem, detect_init_system};
+                let init = detect_init_system();
+                eprintln!("[platform] Detected init system: {:?}", init);
+                match init {
+                    InitSystem::Systemd => {
+                        eprintln!("[platform] Autostart will use systemd");
+                    }
+                    _ => {
+                        eprintln!(
+                            "[platform] WARNING: Autostart may not work on {:?} init system (only systemd is supported)",
+                            init
+                        );
+                    }
+                }
+                // Linux: plugin handles platform detection internally, no launcher needed
+                tauri_plugin_autostart::init(
+                    tauri_plugin_autostart::MacosLauncher::LaunchAgent, // Placeholder, not used on Linux
+                    Some(vec!["--hidden"]),
+                )
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                tauri_plugin_autostart::init(
+                    platform::get_autostart_launcher(),
+                    Some(vec!["--hidden"]),
+                )
+            }
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_positioner::init());
 
