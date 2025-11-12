@@ -582,20 +582,20 @@ impl ModelsService for ModelsServiceImpl {
             .downloads
             .lock()
             .map_err(|_| "models: download map poisoned".to_string())?;
-        
+
         // Check if download exists.
         if guard.get(model_id).is_none() {
             return Err("download not found".into());
         }
-        
-        // Set cancellation flag (download worker will check this and stop).
+
+        // Set cancellation flag and update status with error.
+        // Keep the entry so status() can return the cancellation error.
         if let Some(entry) = guard.get_mut(model_id) {
             entry.cancel.store(true, Ordering::Relaxed);
+            entry.status.downloading = false;
+            entry.status.error = Some("unknown error: cancelled".to_string());
         }
-        
-        // Remove the download entry from the map (cleanup).
-        guard.remove(model_id);
-        
+
         // Release lock before I/O operations.
         drop(guard);
 
