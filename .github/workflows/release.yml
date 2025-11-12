@@ -3,7 +3,7 @@ name: Release TUI
 on:
   push:
     tags:
-      - "v*"
+      - "tui-v*"
 
 permissions:
   contents: write
@@ -78,6 +78,17 @@ jobs:
       - name: Create TUI release
         uses: softprops/action-gh-release@v2
         with:
+          name: Keyless TUI ${{ github.ref_name }}
+          body: |
+            ## Keyless TUI Release
+            
+            Command-line terminal UI version of Keyless.
+            
+            Download the binary for your platform:
+            - Linux: `keyless-linux-x86_64`
+            - macOS (Intel): `keyless-macos-x86_64`
+            - macOS (Apple Silicon): `keyless-macos-aarch64`
+            - Windows: `keyless-windows-x86_64.exe`
           files: artifacts/**/*
           draft: false
           prerelease: false

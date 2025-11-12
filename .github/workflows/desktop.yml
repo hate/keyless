@@ -63,4 +63,6 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
 
       - name: Build desktop (debug)
-        run: pnpm -C keyless-desktop tauri build --debug
+        run: |
+          # Skip bundle creation in CI to speed up builds (only build binary)
+          pnpm -C keyless-desktop tauri build --debug --bundles none

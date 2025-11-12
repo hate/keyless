@@ -3,7 +3,7 @@ name: Release Desktop App
 on:
   push:
     tags:
-      - "v*"
+      - "desktop-v*"
 
 permissions:
   contents: write
@@ -85,6 +85,16 @@ jobs:
       - name: Create Desktop App release
         uses: softprops/action-gh-release@v2
         with:
+          name: Keyless Desktop ${{ github.ref_name }}
+          body: |
+            ## Keyless Desktop Release
+            
+            Desktop application version of Keyless with GUI.
+            
+            Download the installer for your platform:
+            - Linux: `.deb` or `.rpm` package
+            - macOS: `.dmg` installer
+            - Windows: `.msi` installer
           files: artifacts/**/*
           draft: false
           prerelease: false
