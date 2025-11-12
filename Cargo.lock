@@ -5750,7 +5750,7 @@ dependencies = [
 [[package]]
 name = "rdev"
 version = "0.5.3"
-source = "git+https://github.com/hate/rdev?branch=macos-no-key-names#22a9a99821f1c8a74f4be133937502ec2b609cbc"
+source = "git+https://github.com/hate/rdev?branch=macos-no-key-names#5a54189ac3e7a172f8f4d4566f4eecf2932527ee"
 dependencies = [
  "core-foundation 0.10.1",
  "core-foundation-sys",
@@ -5762,6 +5762,7 @@ dependencies = [
  "objc2-core-graphics",
  "objc2-foundation 0.3.2",
  "winapi",
+ "x11",
 ]
 
 [[package]]
