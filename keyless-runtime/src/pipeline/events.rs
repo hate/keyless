@@ -22,6 +22,10 @@ pub fn process_transcription_events<T: RealtimeTranscriber>(
         while let Some(evt) = t.try_next_event() {
             match evt {
                 TranscriptionEvent::Final(text) => {
+                    // Emit word count first so UIs can update stats without parsing Final lines.
+                    let words = text.split_whitespace().count();
+                    let _ = tx_log.try_send(format!("Words: {}", words));
+                    let sink_label = sink.label();
                     // Send to output sink (paste/clipboard/file); play sound on success.
                     if let Err(e) = sink.send_text(&text) {
                         error!(error = %e, "output sink failed");
@@ -30,38 +34,16 @@ pub fn process_transcription_events<T: RealtimeTranscriber>(
                         // Play beep on successful delivery (user feedback).
                         sfx.play_final();
                     }
-                    info!(text = %text, "final transcription delivered");
-                    let _ = tx_log.try_send(format!("Final: {}", text));
+                    info!(text = %text, sink = %sink_label, "final transcription delivered");
+                    let _ = tx_log.try_send(format!("Final → {}: {}", sink_label, text));
                 }
                 TranscriptionEvent::Partial(text) => {
-                    // Show only last 4 words in preview (UI space constraint; full text too long).
-                    let last4 = extract_last_words(&text, 4);
-                    let _ = tx_log.try_send(format!("Partial: {}", last4));
-                    // Send to preview channel (non-blocking; may drop if channel full).
-                    let _ = tx_preview.try_send(last4);
+                    // Show full preview text and label as Preview.
+                    let _ = tx_log.try_send(format!("Preview: {}", text));
+                    // Send full text to preview channel (non-blocking; may drop if channel full).
+                    let _ = tx_preview.try_send(text);
                 }
             }
         }
     }
-}
-
-/// Extract the last N words from text for preview display.
-fn extract_last_words(text: &str, n: usize) -> String {
-    // Early return for edge cases (empty text or zero words requested).
-    if n == 0 || text.is_empty() {
-        return String::new();
-    }
-    // Collect up to the last n words without allocating the full split.
-    // SmallVec avoids heap allocation for small n (stack-allocated for n <= 8).
-    let mut tail: smallvec::SmallVec<[&str; 8]> = smallvec::SmallVec::new();
-    // Iterate in reverse (last words first); stop when we have n words.
-    for w in text.split_whitespace().rev() {
-        if tail.len() == n {
-            break;
-        }
-        tail.push(w);
-    }
-    // Reverse to restore original word order (was collected backwards).
-    tail.reverse();
-    tail.join(" ")
 }

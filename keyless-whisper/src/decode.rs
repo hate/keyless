@@ -27,3 +27,4 @@ mod temperature;
 
 pub use fallback::decode_with_fallback;
 pub use language::detect_language_from_features;
+pub use result::DecodingResult;

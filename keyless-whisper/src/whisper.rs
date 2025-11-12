@@ -2,6 +2,8 @@
 mod construct;
 /// Inference thread implementation.
 mod inference_thread;
+/// Preview cache implementation.
+mod preview_cache;
 /// Trait implementations (RealtimeTranscriber, Drop).
 mod trait_impl;
 /// Type definitions (Whisper struct, WhisperCmd, InferReq).

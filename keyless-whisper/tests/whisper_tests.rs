@@ -6,7 +6,7 @@ use candle_transformers::models::whisper::Config;
 // Note: Since these are in separate modules, we test the public API
 
 #[test]
-fn test_whisper_config_creation() {
+fn whisper_config_creation() {
     use keyless_whisper::WhisperConfig;
     use std::path::PathBuf;
 
@@ -22,7 +22,7 @@ fn test_whisper_config_creation() {
 
 // Mel filter generation tests
 #[test]
-fn test_mel_filter_generation_80_bins() {
+fn mel_filter_generation_80_bins() {
     // Test the mel filter generation for 80-bin config (tiny/base/small/medium models)
     let config = Config {
         num_mel_bins: 80,
@@ -44,7 +44,7 @@ fn test_mel_filter_generation_80_bins() {
 }
 
 #[test]
-fn test_mel_filter_generation_128_bins() {
+fn mel_filter_generation_128_bins() {
     // Test for 128-bin config (large models)
     let config = Config {
         num_mel_bins: 128,
@@ -64,7 +64,7 @@ fn test_mel_filter_generation_128_bins() {
 
 // Token filtering logic tests
 #[test]
-fn test_token_filtering_logic() {
+fn token_filtering_logic() {
     // Test that special tokens would be filtered correctly
     // This tests the logic without needing a real tokenizer
 
@@ -91,7 +91,7 @@ fn test_token_filtering_logic() {
 }
 
 #[test]
-fn test_token_filtering_empty_sequence() {
+fn token_filtering_empty_sequence() {
     let tokens: Vec<u32> = vec![];
     let special_threshold = 50257u32;
     let filtered: Vec<u32> = tokens
@@ -104,7 +104,7 @@ fn test_token_filtering_empty_sequence() {
 }
 
 #[test]
-fn test_token_filtering_only_special_tokens() {
+fn token_filtering_only_special_tokens() {
     let tokens = [50258, 50259, 50359, 50363, 50257];
     let special_threshold = 50257u32;
     let filtered: Vec<u32> = tokens
@@ -117,7 +117,7 @@ fn test_token_filtering_only_special_tokens() {
 }
 
 #[test]
-fn test_token_filtering_only_text_tokens() {
+fn token_filtering_only_text_tokens() {
     let tokens = vec![100, 200, 300, 400, 500];
     let special_threshold = 50257u32;
     let filtered: Vec<u32> = tokens
@@ -128,4 +128,26 @@ fn test_token_filtering_only_text_tokens() {
 
     assert_eq!(filtered, tokens);
     assert_eq!(filtered.len(), 5);
+}
+
+#[test]
+fn units_builder_respects_window_size() {
+    use keyless_whisper::inference::voiced::units_from_spans;
+
+    let spans = std::iter::once(0..1_000_000).collect::<Vec<_>>();
+    let units = units_from_spans(&spans, 160_000, 8_000);
+    assert!(!units.is_empty());
+    for unit in units {
+        assert!(unit.end - unit.start <= 160_000);
+    }
+}
+
+#[test]
+fn overlap_removal_drops_repeated_prefix() {
+    use keyless_whisper::inference::remove_overlap;
+
+    let existing = "hello world this is great";
+    let mut next = "world this is great indeed".to_string();
+    remove_overlap(existing, &mut next);
+    assert_eq!(next, "indeed");
 }

@@ -43,6 +43,11 @@ pub fn handle_ptt_released<T: RealtimeTranscriber>(
                 } else {
                     // Play beep on successful delivery (user feedback).
                     sfx.play_final();
+                    // Immediately report word count so UIs can bump session stats without waiting.
+                    let words = text.split_whitespace().count() as u64;
+                    if words > 0 {
+                        let _ = tx_log.try_send(format!("Words: {}", words));
+                    }
                 }
                 info!(text = %text, "final transcription delivered");
                 let _ = tx_log.try_send(format!("Final: {}", text));

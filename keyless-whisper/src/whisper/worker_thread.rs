@@ -154,27 +154,16 @@ pub(crate) fn run_worker_thread(
         // Dual gate (samples + time) ensures reasonable preview cadence.
         let enough_time = last_partial_time.elapsed() >= Duration::from_millis(120);
 
-        // Emit partial previews for live feedback while the user is still speaking.
-        // Strategy: Every ~0.2s, transcribe just the last ~1s of audio and show a preview.
-        // Why short windows: Faster inference = lower perceived latency. We don't need perfect
-        // accuracy for previews (they're just "last few words" hints).
-        // Why not the full buffer: Transcribing 10+ seconds every 0.2s would be too slow.
-        // Instead, we only look at recent context, then do a full transcription on PTT release.
+        // Emit Partial (Preview) using the full voiced-mask pipeline on the current buffer.
+        // The inference thread will reuse cached units so this stays fast while matching Final.
         if enough_new_samples && enough_time && !buffer.is_empty() {
-            // Last 1 second of audio (enough context for preview, fast inference).
-            const PARTIAL_WINDOW_S: usize = 1;
-
-            // Grab the last N seconds (partial window).
-            // saturating_sub ensures we don't go negative if buffer < 1s.
-            let max_samples = crate::inference::WHISPER_SAMPLE_RATE * PARTIAL_WINDOW_S;
-            let start = buffer.len().saturating_sub(max_samples);
-            // Clone slice for inference thread (worker continues, inference runs async).
-            let pcm = buffer[start..].to_vec();
+            // Clone entire 16 kHz buffer for Preview (worker continues, inference runs async).
+            let pcm = buffer.clone();
 
             // Send to inference thread (non-blocking; skip if inference is busy).
             // try_send fails if inference is still processing previous request (size=1 channel).
             // Silently skip (preview is best-effort; don't block audio processing).
-            if let Err(_e) = inf_tx_worker.try_send(InferReq::Partial(pcm)) {}
+            if let Err(_e) = inf_tx_worker.try_send(InferReq::Preview(pcm)) {}
             // Update tracking: mark this position as last emit point.
             last_partial_emit_at = buffer.len();
             last_partial_time = Instant::now();

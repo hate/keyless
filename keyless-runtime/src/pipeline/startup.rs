@@ -4,7 +4,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, mpsc};
 
 use keyless_audio::AudioConfig;
-use keyless_core::config::{Config, EqTuning, OutputMode, VadThresholds};
+use keyless_core::config::{Config, EqTuning, VadThresholds};
 use keyless_core::error::KeylessResult;
 use keyless_output::OutputSinkProvider;
 use keyless_whisper::{PhaseState, WhisperLoadPhase};
@@ -173,7 +173,18 @@ pub fn start_pipeline(
     config.validate()?;
 
     // Build artifacts and finalize synchronously
-    let artifacts = build_startup_artifacts(config, &eq_tuning, None)?;
+    // Wire Whisper loading phases to tx_log for granular visibility during model/tokenizer init.
+    let tx_log_progress = channels.tx_log.clone();
+    let mut progress_cb = move |evt: StartupEvent| match evt {
+        StartupEvent::PhaseOk(label) => {
+            let _ = tx_log_progress.try_send(format!("[whisper] {}: completed", label));
+        }
+        StartupEvent::PhaseErr(label, err) => {
+            let _ = tx_log_progress.try_send(format!("[whisper] {}: error: {}", label, err));
+        }
+        _ => {}
+    };
+    let artifacts = build_startup_artifacts(config, &eq_tuning, Some(&mut progress_cb))?;
     finalize_pipeline_from_artifacts(
         artifacts,
         config,
@@ -202,11 +213,6 @@ pub fn finalize_pipeline_from_artifacts(
     } = channels;
 
     // Create output sink (paste/clipboard/file) based on config.
-    let sink_label = match &config.output_mode {
-        OutputMode::Paste => "Paste".into(),
-        OutputMode::Clipboard => "Clipboard".into(),
-        OutputMode::File(p) => format!("File ({})", p.display()),
-    };
     let provider = keyless_output::DefaultOutputProvider;
     // Provider creates sink based on output_mode (runtime polymorphism).
     let sink_box: Box<dyn keyless_core::output::OutputSink> = provider.provide(config)?;
@@ -222,6 +228,7 @@ pub fn finalize_pipeline_from_artifacts(
     let transcriber = artifacts.transcriber.clone();
     let sfx = Arc::new(keyless_audio::SfxPlayer::new());
     let sink: Arc<dyn keyless_core::output::OutputSink> = sink_box.into();
+    let sink_label = sink.label();
     let tx = callback::CallbackTx {
         tx_level: tx_level.clone(),
         tx_log: tx_log.clone(),

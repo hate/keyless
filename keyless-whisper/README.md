@@ -10,7 +10,7 @@ Provides a real‑time Whisper engine using Hugging Face Candle. Handles model d
 
 - Candle‑based Whisper (CPU, Metal, CUDA) device selection
 - **Quantized model support** - 3-4x faster inference with GGUF models
-- **Quality improvements** - No-speech detection, temperature fallback, quality metrics
+- **Quality improvements** - Per‑unit silence‑drop + overlap dedupe, temperature fallback, quality metrics
 - HF Hub auto‑download and local cache
 - High‑quality arbitrary-rate resampling via rubato (16k, 32k, 44.1k, 48k, 96k all supported)
 - Streaming interface: push audio frames, poll events
@@ -82,13 +82,21 @@ let mut t = Whisper::new_with_progress(cfg, Some(|phase: WhisperLoadPhase, state
 - **Language:** For multilingual models, provide `language: Some("en")` for English transcription. Auto-detection is slower and less accurate.
 - **Model selection:** Both multilingual and `.en` models work. `.en` models are slightly smaller but English-only.
 
+### Design Overview
+
+- **Unified Preview = Final**: Both run the same voiced‑mask pipeline. Previews reuse cached unit texts via a ~128 ms tail hash and only decode the newest tail units; Final runs over the full segment.
+- **Voiced‑mask units**: Build voiced spans, split into ≤10s units with 0.5s overlap, decode, dedupe overlap, stitch.
+- **Mel cap**: Cap mel frames to full Whisper context (2×max_source_positions = 3000 frames) to avoid encoder narrow errors.
+- **Silence‑drop**: Per‑unit guard combines RMS and Whisper’s `no_speech_prob` to drop only silent units (no global gate).
+- **Temperature fallback**: Keep greedy first; retry with higher temperatures only when metrics indicate low confidence or repetition.
+
 ### How It Works
 
 **Audio Flow:**
 1. Audio captured at device sample rate → rubato resampler → 16 kHz mono
 2. VAD gates speech; only voice frames accumulate in the utterance buffer
-3. While speaking (PTT held): emit Partial every ~0.2s from last ≤2s of audio (preview only)
-4. On PTT release: emit single Final from entire utterance (walk ≤30s windows, concatenate)
+3. While speaking (PTT held): emit Preview by running the voiced‑mask pipeline on the current buffer (≤10s units, 0.5s overlap); reuse cached unit texts via a ~128 ms tail hash; decode only tail units
+4. On PTT release: emit single Final by running the same pipeline on the entire utterance; stitch units after overlap dedupe
 
 **Decoder:**
 - Based on Candle WASM Whisper example pattern
@@ -103,7 +111,7 @@ We analyzed the [candle-wasm-examples/whisper](https://github.com/huggingface/ca
 
 Auto-detects `.gguf` files and loads appropriate format. No user configuration needed.
 
-#### **1. No-Speech Detection (prevents hallucinations)**
+#### **1. Per-Unit Silence-Drop (prevents hallucinations)**
 
 **What we learned:**
 - On silent/noise-only segments, Whisper can hallucinate text
@@ -111,9 +119,9 @@ Auto-detects `.gguf` files and loads appropriate format. No user configuration n
 - Threshold of 0.6 effectively filters silent segments
 
 **Implementation:**
-- Extract `no_speech_prob` from first decoder forward pass
-- Skip segment if `no_speech_prob > 0.6`
-- Prevents "Thank you for watching" hallucinations on silence
+- Extract `no_speech_prob` from the first decoder pass for each unit
+- Combine with unit RMS; drop the unit only if high no‑speech and very low RMS
+- Avoids global gating so non‑silent content is never discarded
 
 #### **2. Temperature Fallback (quality recovery)**
 

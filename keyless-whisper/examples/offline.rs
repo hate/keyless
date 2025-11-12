@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use candle_core::Device;
 use keyless_core::error::{KeylessError, KeylessResult};
-use keyless_whisper::inference::{WHISPER_SAMPLE_RATE, run_inference_full};
+use keyless_whisper::inference::{WHISPER_SAMPLE_RATE, run_inference_voiced};
 use keyless_whisper::model::{WhisperModel, load_whisper_model};
 
 fn read_wav_as_f32_mono_16k(path: &Path) -> KeylessResult<Vec<f32>> {
@@ -128,7 +128,7 @@ fn main() -> KeylessResult<()> {
     let (mut components, device) = load_model(&model)?;
 
     // Run full inference on entire audio (blocking; processes all audio at once).
-    let text = run_inference_full(&mut components, &pcm, &device)?;
+    let text = run_inference_voiced(&mut components, &pcm, &device)?;
 
     println!("TEXT: {}", text);
     // Convert text to UTF-8 bytes for hex preview (debugging output).

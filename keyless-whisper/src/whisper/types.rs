@@ -30,17 +30,15 @@ pub struct Whisper {
 }
 
 /// Commands sent to the worker thread to control segmentation.
-/// Control commands sent to the worker thread.
 pub(crate) enum WhisperCmd {
     /// Finalize the current segment and emit a Final event.
     EndSegment,
 }
 
-/// Requests sent to the inference thread.
 /// Inference requests sent to the inference thread.
 pub(crate) enum InferReq {
-    /// Run a windowed partial inference on the provided PCM samples.
-    Partial(Vec<f32>),
+    /// Run a preview using the full voiced-mask pipeline on the current buffer.
+    Preview(Vec<f32>),
     /// Run a full final inference on the provided PCM samples.
     Final(Vec<f32>),
 }
