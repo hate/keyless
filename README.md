@@ -34,6 +34,16 @@ I built keyless to create a fast, private dictation workflow I can rely on every
 
 The goal is a tool you can trust: local and no accounts. Choose the interface that fits your workflow—terminal or desktop.
 
+## 📸 Demos
+
+**Desktop App (Beta):**
+
+![Desktop app demo](assets/keylessDESKTOP.gif)
+
+**TUI (Terminal) Version:**
+
+![TUI demo](assets/keylessTUI.gif)
+
 ## ✨ Features
 
 **Privacy-First Architecture**
@@ -135,16 +145,6 @@ Note: CUDA is an optional feature flag on the same install; use `--features cuda
 
 **First run:** Downloads Whisper model 
 **Usage:** Press Control+Option (configurable) to start dictating
-
-## 📸 Demos
-
-**Desktop App (Beta):**
-
-![Desktop app demo](assets/keylessDESKTOP.gif)
-
-**TUI (Terminal) Version:**
-
-![TUI demo](assets/keylessTUI.gif)
 
 ## 🔧 How It Works
 
@@ -473,11 +473,3 @@ Check out the [Contributing Guide](CONTRIBUTING.md) for:
 ## 📄 License
 
 MIT - see [LICENSE](LICENSE) for details
-
----
-
-<div align="center">
-
-_Built with Rust for privacy, performance, and control_
-
-</div>
