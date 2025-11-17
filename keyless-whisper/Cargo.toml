@@ -10,7 +10,7 @@ publish = false
 keyless-core = { path = "../keyless-core" }
 keyless-models = { path = "../keyless-models" }
 candle-core = "0.8"
-candle-nn = "0.8"
+candle-nn = "0.9"
 candle-transformers = "0.8"
 tokenizers = "0.22"
 serde = { version = "1", features = ["derive"] }
