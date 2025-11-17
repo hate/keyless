@@ -31,5 +31,5 @@ cuda = ["keyless-whisper/cuda"]
 
 [dev-dependencies]
 serde_json = "1"
-candle-transformers = "0.8"
+candle-transformers = "0.9"
 tempfile = "3"
