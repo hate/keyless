@@ -176,6 +176,8 @@ pub fn can_record() -> bool {
 
     let sc: cpal::StreamConfig = cfg.config().clone();
     let result = match cfg.sample_format() {
+        cpal::SampleFormat::I8 => try_build::<i8>(&device, sc),
+        cpal::SampleFormat::U8 => try_build::<u8>(&device, sc),
         cpal::SampleFormat::I16 => try_build::<i16>(&device, sc),
         cpal::SampleFormat::U16 => try_build::<u16>(&device, sc),
         cpal::SampleFormat::F32 => try_build::<f32>(&device, sc),
