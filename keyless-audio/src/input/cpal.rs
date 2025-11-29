@@ -231,6 +231,49 @@ impl CpalAudioInput {
                 err_fn,
                 None,
             ),
+            cpal::SampleFormat::I8 => device.build_input_stream(
+                &chosen.config(),
+                move |data: &[i8], _| {
+                    // Convert i8 [-128, 127] to f32 [-1.0, 1.0] via division by MAX.
+                    // Cast to f32 before division to avoid integer overflow.
+                    if let Ok(mut state) = shared_clone.lock() {
+                        let frame_samples = state.1;
+                        let buf = &mut state.0;
+                        for &s in data.iter() {
+                            buf.push(s as f32 / i8::MAX as f32);
+                        }
+                        // Drain complete frames; may emit multiple frames if buffer accumulated enough.
+                        while buf.len() >= frame_samples {
+                            let frame: Vec<f32> = buf.drain(0..frame_samples).collect();
+                            let _ = tx.try_send(frame);
+                        }
+                    }
+                },
+                err_fn,
+                None,
+            ),
+            cpal::SampleFormat::U8 => device.build_input_stream(
+                &chosen.config(),
+                move |data: &[u8], _| {
+                    // Convert u8 [0, 255] to f32 [-1.0, 1.0]: normalize to [0, 1], then shift.
+                    // Formula: (s / MAX) * 2.0 - 1.0 maps 0→-1.0, 127→0.0, 255.0.
+                    if let Ok(mut state) = shared_clone.lock() {
+                        let frame_samples = state.1;
+                        let buf = &mut state.0;
+                        for &s in data.iter() {
+                            let f = (s as f32 / u8::MAX as f32) * 2.0 - 1.0;
+                            buf.push(f);
+                        }
+                        // Drain complete frames; may emit multiple frames if buffer accumulated enough.
+                        while buf.len() >= frame_samples {
+                            let frame: Vec<f32> = buf.drain(0..frame_samples).collect();
+                            let _ = tx.try_send(frame);
+                        }
+                    }
+                },
+                err_fn,
+                None,
+            ),
             _ => {
                 // Reject unsupported formats (I24, I32, F64, etc.) upfront.
                 return Err(keyless_core::error::KeylessError::Audio(
