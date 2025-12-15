@@ -82,7 +82,7 @@ jobs:
           ls -lh bundle-artifacts/ || echo "No bundle artifacts found"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: bundle-artifacts/**
